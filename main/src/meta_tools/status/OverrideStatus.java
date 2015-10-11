@@ -33,7 +33,7 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
         public static final ConfigOptionsDelegate<Options> config = new ConfigOptionsDelegate<Options>();
         public static final ManifestOptionsDelegate<Options> manifest = new ManifestOptionsDelegate<Options>();
         public static final RepoActionOptionsDelegate<Options> repos = new RepoActionOptionsDelegate<Options>(RepoActionOptionsDelegate.NoArgsBehaviour.OVERRIDES);
-        public static final OptionsFragment<Options, ?, Boolean> omitBoring = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("--omit-boring"), "Omit overrides if they're clean and match manifest version");
+        public static final OptionsFragment<Options, ?, Boolean> showBoring = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("--show-boring"), "Show overrides even if they're clean and match manifest version");
 
     }
 
@@ -52,7 +52,7 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
         QbtConfig config = Options.config.getConfig(options);
         QbtManifest manifest = Options.manifest.getResult(options).parse();
         Collection<PackageTip> repos = Options.repos.getRepos(config, manifest, options);
-        boolean omitBoring = options.get(Options.omitBoring);
+        boolean showBoring = options.get(Options.showBoring);
 
         for(PackageTip repoTip : repos) {
             RepoManifest repoManifest = manifest.repos.get(repoTip);
@@ -67,7 +67,7 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
 
             OverrideState overrideState = getOverrideState(repoTip, repoManifest, config, vcs);
 
-            if(omitBoring && isBoring(overrideState)) {
+            if(!showBoring && isBoring(overrideState)) {
                 continue;
             }
 
