@@ -17,11 +17,11 @@ import qbt.QbtManifest;
 import qbt.RepoManifest;
 import qbt.VcsVersionDigest;
 import qbt.config.QbtConfig;
-import qbt.config.RepoConfig;
 import qbt.options.ConfigOptionsDelegate;
 import qbt.options.ManifestOptionsDelegate;
 import qbt.options.RepoActionOptionsDelegate;
 import qbt.repo.LocalRepoAccessor;
+import qbt.repo.RemoteRepoAccessor;
 import qbt.vcs.CommitDataUtils;
 import qbt.vcs.LocalVcs;
 import qbt.vcs.Repository;
@@ -120,8 +120,8 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
         String oneliner = CommitDataUtils.getOneLiner(overrideRepository, overrideRepository.getCurrentCommit());
 
         if(!overrideRepository.commitExists(canonicalHash)) {
-            RepoConfig.RequireRepoRemoteResult requireRepoRemoteResult = config.repoConfig.requireRepoRemote(repoTip, canonicalHash);
-            requireRepoRemoteResult.getRemote().findCommit(repoPath, ImmutableList.of(canonicalHash));
+            RemoteRepoAccessor remoteRepoAccessor = config.repoConfig.requireRepoRemote(repoTip, canonicalHash);
+            remoteRepoAccessor.remote.findCommit(repoPath, ImmutableList.of(canonicalHash));
         }
         String canonicalOneliner = CommitDataUtils.getOneLiner(overrideRepository, canonicalHash);
 
