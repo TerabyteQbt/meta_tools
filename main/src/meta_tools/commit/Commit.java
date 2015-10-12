@@ -34,6 +34,7 @@ import qbt.options.ConfigOptionsDelegate;
 import qbt.options.ManifestOptionsDelegate;
 import qbt.options.ManifestOptionsResult;
 import qbt.options.RepoActionOptionsDelegate;
+import qbt.repo.LocalRepoAccessor;
 import qbt.utils.ProcessHelper;
 import qbt.vcs.Repository;
 import qbt.vcs.VcsRegistry;
@@ -100,18 +101,18 @@ public final class Commit extends QbtCommand<Commit.Options> {
         for(final PackageTip repo : repos) {
             RepoManifest repoManifest = manifest.repos.get(repo);
 
-            final RepoConfig.RequireRepoLocalResult repoLocalResult = config.repoConfig.findLocalRepo(repo);
-            if(repoLocalResult == null) {
+            final LocalRepoAccessor localRepoAccessor = config.repoConfig.findLocalRepo(repo);
+            if(localRepoAccessor == null) {
                 continue;
             }
-            final Repository repoRepository = repoLocalResult.getLocalVcs().getRepository(repoLocalResult.getDirectory());
+            final Repository repoRepository = localRepoAccessor.vcs.getRepository(localRepoAccessor.dir);
             final VcsVersionDigest currentRepoVersion = repoRepository.getCurrentCommit();
             LOGGER.debug("[" + repo + "] currentRepoVersion = " + currentRepoVersion);
 
             final VcsVersionDigest manifestRepoVersion = repoManifest.version;
             LOGGER.debug("[" + repo + "] manifestRepoVersion = " + manifestRepoVersion);
             final RepoConfig.RequireRepoRemoteResult repoRemoteResult = config.repoConfig.requireRepoRemote(repo, repoManifest.version);
-            repoRemoteResult.getRemote().findCommit(repoLocalResult.getDirectory(), ImmutableList.of(manifestRepoVersion));
+            repoRemoteResult.getRemote().findCommit(localRepoAccessor.dir, ImmutableList.of(manifestRepoVersion));
 
             class CommitMakerMaker {
                 public boolean make() {
@@ -123,7 +124,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
                         @Override
                         public VcsVersionDigest commit(String message) {
                             VcsVersionDigest commit = commitMaker.commit(message);
-                            repoRemoteResult.getRemote().addPin(repoLocalResult.getDirectory(), commit);
+                            repoRemoteResult.getRemote().addPin(localRepoAccessor.dir, commit);
                             return commit;
                         }
                     });

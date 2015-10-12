@@ -21,6 +21,7 @@ import qbt.config.RepoConfig;
 import qbt.options.ConfigOptionsDelegate;
 import qbt.options.ManifestOptionsDelegate;
 import qbt.options.RepoActionOptionsDelegate;
+import qbt.repo.LocalRepoAccessor;
 import qbt.vcs.CommitDataUtils;
 import qbt.vcs.LocalVcs;
 import qbt.vcs.Repository;
@@ -56,14 +57,14 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
 
         for(PackageTip repoTip : repos) {
             RepoManifest repoManifest = manifest.repos.get(repoTip);
-            RepoConfig.RequireRepoLocalResult repoResult = config.repoConfig.findLocalRepo(repoTip);
+            LocalRepoAccessor localRepoAccessor = config.repoConfig.findLocalRepo(repoTip);
 
-            if(repoResult == null) {
+            if(localRepoAccessor == null) {
                 LOGGER.info("not overridden: {}\n", repoTip);
                 continue;
             }
 
-            LocalVcs vcs = repoResult.getLocalVcs();
+            LocalVcs vcs = localRepoAccessor.vcs;
 
             OverrideState overrideState = getOverrideState(repoTip, repoManifest, config, vcs);
 
@@ -111,7 +112,7 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
     }
 
     public static OverrideState getOverrideState(PackageTip repoTip, RepoManifest repoManifest, QbtConfig config, LocalVcs vcs) {
-        Path repoPath = config.repoConfig.findLocalRepo(repoTip).getDirectory();
+        Path repoPath = config.repoConfig.findLocalRepo(repoTip).dir;
         Repository overrideRepository = vcs.getRepository(repoPath);
         VcsVersionDigest repoHash = overrideRepository.getCurrentCommit();
         VcsVersionDigest canonicalHash = repoManifest.version;

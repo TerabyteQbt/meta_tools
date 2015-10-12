@@ -29,6 +29,7 @@ import qbt.config.QbtConfig;
 import qbt.config.RepoConfig;
 import qbt.diffmanifests.MapDiffer;
 import qbt.options.ConfigOptionsDelegate;
+import qbt.repo.LocalRepoAccessor;
 import qbt.utils.ProcessHelper;
 import qbt.vcs.CachedRemote;
 import qbt.vcs.LocalVcs;
@@ -75,11 +76,11 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
                 PackageTip repo = e.getKey();
                 RepoManifest repoManifest = e.getValue();
                 VcsVersionDigest version = repoManifest.version;
-                RepoConfig.RequireRepoLocalResult requireRepoLocalResult = config.repoConfig.findLocalRepo(repo);
-                if(requireRepoLocalResult == null) {
+                LocalRepoAccessor localRepoAccessor = config.repoConfig.findLocalRepo(repo);
+                if(localRepoAccessor == null) {
                     continue;
                 }
-                VcsVersionDigest newVersion = requireRepoLocalResult.getLocalVcs().getRepository(requireRepoLocalResult.getDirectory()).getCurrentCommit();
+                VcsVersionDigest newVersion = localRepoAccessor.vcs.getRepository(localRepoAccessor.dir).getCurrentCommit();
                 if(!newVersion.equals(version)) {
                     repoManifest = repoManifest.builder().withVersion(newVersion).build();
                     b = b.with(repo, repoManifest);
@@ -192,12 +193,12 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
 
             private void run(PackageTip repo, String deltaType, Map<String, VcsVersionDigest> versions) {
                 if(options.get(Options.override)) {
-                    RepoConfig.RequireRepoLocalResult requireRepoLocalResult = config.repoConfig.findLocalRepo(repo);
-                    if(requireRepoLocalResult == null) {
+                    LocalRepoAccessor localRepoAccessor = config.repoConfig.findLocalRepo(repo);
+                    if(localRepoAccessor == null) {
                         return;
                     }
-                    Path dir = requireRepoLocalResult.getDirectory();
-                    LocalVcs localVcs = requireRepoLocalResult.getLocalVcs();
+                    Path dir = localRepoAccessor.dir;
+                    LocalVcs localVcs = localRepoAccessor.vcs;
                     run2(dir, localVcs, repo, deltaType, versions);
                 }
                 else {

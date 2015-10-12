@@ -31,6 +31,7 @@ import qbt.config.RepoConfig;
 import qbt.mains.MergeManifests;
 import qbt.map.DependencyComputer;
 import qbt.map.SimpleDependencyComputer;
+import qbt.repo.LocalRepoAccessor;
 import qbt.utils.ProcessHelper;
 import qbt.vcs.Repository;
 
@@ -198,9 +199,9 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
 
             final Repository overrideRepo;
             {
-                RepoConfig.RequireRepoLocalResult override = config.repoConfig.findLocalRepo(repo);
+                LocalRepoAccessor override = config.repoConfig.findLocalRepo(repo);
                 if(override != null) {
-                    overrideRepo = override.getLocalVcs().getRepository(override.getDirectory());
+                    overrideRepo = override.vcs.getRepository(override.dir);
                     if(!overrideRepo.isClean()) {
                         throw new IllegalArgumentException("Repo " + repo + " is overridden and dirty!");
                     }
