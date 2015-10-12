@@ -29,9 +29,8 @@ import qbt.config.QbtConfig;
 import qbt.diffmanifests.MapDiffer;
 import qbt.options.ConfigOptionsDelegate;
 import qbt.repo.LocalRepoAccessor;
-import qbt.repo.RemoteRepoAccessor;
+import qbt.repo.PinnedRepoAccessor;
 import qbt.utils.ProcessHelper;
-import qbt.vcs.CachedRemote;
 import qbt.vcs.LocalVcs;
 import qbt.vcs.Repository;
 import qbt.vcs.git.GitLocalVcs;
@@ -213,9 +212,8 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
                     if(localVcs != null && localVcs.getRepository(dir).commitExists(version)) {
                         continue;
                     }
-                    RemoteRepoAccessor remoteRepoAccessor = config.repoConfig.requireRemoteRepo(repo, version);
-                    CachedRemote remote = remoteRepoAccessor.remote;
-                    LocalVcs localVcs2 = remote.getLocalVcs();
+                    PinnedRepoAccessor pinnedAccessor = config.localPinsRepo.requirePin(repo, version);
+                    LocalVcs localVcs2 = pinnedAccessor.getLocalVcs();
                     if(localVcs == null) {
                         localVcs = localVcs2;
                         localVcs.createWorkingRepo(dir);
@@ -225,7 +223,7 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
                             throw new RuntimeException("Mismatched local VCSs: " + localVcs + " / " + localVcs2);
                         }
                     }
-                    remote.findCommit(dir, ImmutableList.of(version));
+                    pinnedAccessor.findCommit(dir);
                 }
                 if(localVcs == null) {
                     throw new IllegalStateException("Sdiff.run() called with no versions");

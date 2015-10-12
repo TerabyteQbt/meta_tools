@@ -31,7 +31,7 @@ import qbt.mains.MergeManifests;
 import qbt.map.DependencyComputer;
 import qbt.map.SimpleDependencyComputer;
 import qbt.repo.LocalRepoAccessor;
-import qbt.repo.RemoteRepoAccessor;
+import qbt.repo.PinnedRepoAccessor;
 import qbt.utils.ProcessHelper;
 import qbt.vcs.Repository;
 
@@ -224,8 +224,8 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                     stepsBuilder.add(new Step() {
                         @Override
                         public StepResult run() {
-                            RemoteRepoAccessor lhsResult = config.repoConfig.requireRemoteRepo(repo, lhsVersion);
-                            lhsResult.remote.findCommit(overrideRepo.getRoot(), ImmutableList.of(lhsVersion));
+                            PinnedRepoAccessor lhsResult = config.localPinsRepo.requirePin(repo, lhsVersion);
+                            lhsResult.findCommit(overrideRepo.getRoot());
                             overrideRepo.checkout(lhsVersion);
                             return new StepResult(ImmutableList.<Pair<PackageTip, VcsVersionDigest>>of(), false);
                         }
@@ -244,12 +244,12 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                     stepsBuilder.add(new Step() {
                         @Override
                         public StepResult run() {
-                            RemoteRepoAccessor lhsResult = config.repoConfig.requireRemoteRepo(repo, lhsVersion);
-                            lhsResult.remote.findCommit(overrideRepo.getRoot(), ImmutableList.of(lhsVersion));
-                            RemoteRepoAccessor mhsResult = config.repoConfig.requireRemoteRepo(repo, mhsVersion);
-                            mhsResult.remote.findCommit(overrideRepo.getRoot(), ImmutableList.of(mhsVersion));
-                            RemoteRepoAccessor rhsResult = config.repoConfig.requireRemoteRepo(repo, rhsVersion);
-                            rhsResult.remote.findCommit(overrideRepo.getRoot(), ImmutableList.of(rhsVersion));
+                            PinnedRepoAccessor lhsResult = config.localPinsRepo.requirePin(repo, lhsVersion);
+                            lhsResult.findCommit(overrideRepo.getRoot());
+                            PinnedRepoAccessor mhsResult = config.localPinsRepo.requirePin(repo, mhsVersion);
+                            mhsResult.findCommit(overrideRepo.getRoot());
+                            PinnedRepoAccessor rhsResult = config.localPinsRepo.requirePin(repo, rhsVersion);
+                            rhsResult.findCommit(overrideRepo.getRoot());
 
                             if(strategy != null) {
                                 try {
@@ -286,8 +286,8 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                             int exitCode = p.completeExitCode();
                             if(exitCode == 0) {
                                 VcsVersionDigest result = overrideRepo.getCurrentCommit();
-                                lhsResult.remote.addPin(overrideRepo.getRoot(), result);
-                                rhsResult.remote.addPin(overrideRepo.getRoot(), result);
+                                lhsResult.addPin(overrideRepo.getRoot(), result);
+                                rhsResult.addPin(overrideRepo.getRoot(), result);
                                 return new StepResult(ImmutableList.of(Pair.of(repo, result)), false);
                             }
                             else {
