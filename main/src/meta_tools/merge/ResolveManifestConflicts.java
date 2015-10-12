@@ -199,7 +199,7 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
 
             final Repository overrideRepo;
             {
-                LocalRepoAccessor override = config.repoConfig.findLocalRepo(repo);
+                LocalRepoAccessor override = config.localRepoFinder.findLocalRepo(repo);
                 if(override != null) {
                     overrideRepo = override.vcs.getRepository(override.dir);
                     if(!overrideRepo.isClean()) {
@@ -224,7 +224,7 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                     stepsBuilder.add(new Step() {
                         @Override
                         public StepResult run() {
-                            RemoteRepoAccessor lhsResult = config.repoConfig.requireRepoRemote(repo, lhsVersion);
+                            RemoteRepoAccessor lhsResult = config.repoConfig.requireRemoteRepo(repo, lhsVersion);
                             lhsResult.remote.findCommit(overrideRepo.getRoot(), ImmutableList.of(lhsVersion));
                             overrideRepo.checkout(lhsVersion);
                             return new StepResult(ImmutableList.<Pair<PackageTip, VcsVersionDigest>>of(), false);
@@ -244,11 +244,11 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                     stepsBuilder.add(new Step() {
                         @Override
                         public StepResult run() {
-                            RemoteRepoAccessor lhsResult = config.repoConfig.requireRepoRemote(repo, lhsVersion);
+                            RemoteRepoAccessor lhsResult = config.repoConfig.requireRemoteRepo(repo, lhsVersion);
                             lhsResult.remote.findCommit(overrideRepo.getRoot(), ImmutableList.of(lhsVersion));
-                            RemoteRepoAccessor mhsResult = config.repoConfig.requireRepoRemote(repo, mhsVersion);
+                            RemoteRepoAccessor mhsResult = config.repoConfig.requireRemoteRepo(repo, mhsVersion);
                             mhsResult.remote.findCommit(overrideRepo.getRoot(), ImmutableList.of(mhsVersion));
-                            RemoteRepoAccessor rhsResult = config.repoConfig.requireRepoRemote(repo, rhsVersion);
+                            RemoteRepoAccessor rhsResult = config.repoConfig.requireRemoteRepo(repo, rhsVersion);
                             rhsResult.remote.findCommit(overrideRepo.getRoot(), ImmutableList.of(rhsVersion));
 
                             if(strategy != null) {

@@ -101,7 +101,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
         for(final PackageTip repo : repos) {
             RepoManifest repoManifest = manifest.repos.get(repo);
 
-            final LocalRepoAccessor localRepoAccessor = config.repoConfig.findLocalRepo(repo);
+            final LocalRepoAccessor localRepoAccessor = config.localRepoFinder.findLocalRepo(repo);
             if(localRepoAccessor == null) {
                 continue;
             }
@@ -111,7 +111,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
 
             final VcsVersionDigest manifestRepoVersion = repoManifest.version;
             LOGGER.debug("[" + repo + "] manifestRepoVersion = " + manifestRepoVersion);
-            final RemoteRepoAccessor remoteRepoAccessor = config.repoConfig.requireRepoRemote(repo, repoManifest.version);
+            final RemoteRepoAccessor remoteRepoAccessor = config.repoConfig.requireRemoteRepo(repo, repoManifest.version);
             remoteRepoAccessor.remote.findCommit(localRepoAccessor.dir, ImmutableList.of(manifestRepoVersion));
 
             class CommitMakerMaker {

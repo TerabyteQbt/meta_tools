@@ -76,7 +76,7 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
                 PackageTip repo = e.getKey();
                 RepoManifest repoManifest = e.getValue();
                 VcsVersionDigest version = repoManifest.version;
-                LocalRepoAccessor localRepoAccessor = config.repoConfig.findLocalRepo(repo);
+                LocalRepoAccessor localRepoAccessor = config.localRepoFinder.findLocalRepo(repo);
                 if(localRepoAccessor == null) {
                     continue;
                 }
@@ -193,7 +193,7 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
 
             private void run(PackageTip repo, String deltaType, Map<String, VcsVersionDigest> versions) {
                 if(options.get(Options.override)) {
-                    LocalRepoAccessor localRepoAccessor = config.repoConfig.findLocalRepo(repo);
+                    LocalRepoAccessor localRepoAccessor = config.localRepoFinder.findLocalRepo(repo);
                     if(localRepoAccessor == null) {
                         return;
                     }
@@ -213,7 +213,7 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
                     if(localVcs != null && localVcs.getRepository(dir).commitExists(version)) {
                         continue;
                     }
-                    RemoteRepoAccessor remoteRepoAccessor = config.repoConfig.requireRepoRemote(repo, version);
+                    RemoteRepoAccessor remoteRepoAccessor = config.repoConfig.requireRemoteRepo(repo, version);
                     CachedRemote remote = remoteRepoAccessor.remote;
                     LocalVcs localVcs2 = remote.getLocalVcs();
                     if(localVcs == null) {

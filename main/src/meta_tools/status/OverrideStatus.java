@@ -57,7 +57,7 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
 
         for(PackageTip repoTip : repos) {
             RepoManifest repoManifest = manifest.repos.get(repoTip);
-            LocalRepoAccessor localRepoAccessor = config.repoConfig.findLocalRepo(repoTip);
+            LocalRepoAccessor localRepoAccessor = config.localRepoFinder.findLocalRepo(repoTip);
 
             if(localRepoAccessor == null) {
                 LOGGER.info("not overridden: {}\n", repoTip);
@@ -112,7 +112,7 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
     }
 
     public static OverrideState getOverrideState(PackageTip repoTip, RepoManifest repoManifest, QbtConfig config, LocalVcs vcs) {
-        Path repoPath = config.repoConfig.findLocalRepo(repoTip).dir;
+        Path repoPath = config.localRepoFinder.findLocalRepo(repoTip).dir;
         Repository overrideRepository = vcs.getRepository(repoPath);
         VcsVersionDigest repoHash = overrideRepository.getCurrentCommit();
         VcsVersionDigest canonicalHash = repoManifest.version;
@@ -120,7 +120,7 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
         String oneliner = CommitDataUtils.getOneLiner(overrideRepository, overrideRepository.getCurrentCommit());
 
         if(!overrideRepository.commitExists(canonicalHash)) {
-            RemoteRepoAccessor remoteRepoAccessor = config.repoConfig.requireRepoRemote(repoTip, canonicalHash);
+            RemoteRepoAccessor remoteRepoAccessor = config.repoConfig.requireRemoteRepo(repoTip, canonicalHash);
             remoteRepoAccessor.remote.findCommit(repoPath, ImmutableList.of(canonicalHash));
         }
         String canonicalOneliner = CommitDataUtils.getOneLiner(overrideRepository, canonicalHash);
