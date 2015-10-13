@@ -5,6 +5,7 @@ if [[ $# -lt 2 ]]; then
     echo "Usage: $0 SRC_ORG DST_ORG [repos...]"
     echo
     echo "    If repos are left off, it will grab them all"
+	echo "    Ensure your ~/.netrc contains an entry for api.github.com as well"
     exit 1;
 fi
 
