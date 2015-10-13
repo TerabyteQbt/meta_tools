@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -e
+
+cp -rp bin $OUTPUT_ARTIFACTS_DIR/
+
