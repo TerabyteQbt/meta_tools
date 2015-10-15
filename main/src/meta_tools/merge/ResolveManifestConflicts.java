@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import qbt.HelpTier;
 import qbt.NormalDependencyType;
 import qbt.PackageManifest;
-import qbt.PackageTip;
 import qbt.QbtCommand;
 import qbt.QbtCommandName;
 import qbt.QbtCommandOptions;
@@ -32,6 +31,8 @@ import qbt.map.DependencyComputer;
 import qbt.map.SimpleDependencyComputer;
 import qbt.repo.LocalRepoAccessor;
 import qbt.repo.PinnedRepoAccessor;
+import qbt.tip.PackageTip;
+import qbt.tip.RepoTip;
 import qbt.utils.ProcessHelper;
 import qbt.vcs.Repository;
 
@@ -79,8 +80,8 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
             QbtManifest.Builder lhsBuilder = lhs.builder();
             QbtManifest.Builder mhsBuilder = mhs.builder();
             QbtManifest.Builder rhsBuilder = rhs.builder();
-            for(Pair<PackageTip, VcsVersionDigest> update : sr.updates) {
-                PackageTip repo = update.getLeft();
+            for(Pair<RepoTip, VcsVersionDigest> update : sr.updates) {
+                RepoTip repo = update.getLeft();
                 VcsVersionDigest version = update.getRight();
                 LOGGER.info("Resolved " + repo + " to " + version.getRawDigest());
                 lhsBuilder = lhsBuilder.with(repo, lhs.repos.get(repo).builder().withVersion(version).build());
@@ -100,8 +101,8 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
         return 0;
     }
 
-    private static ImmutableMultimap<PackageTip, PackageTip> computeRepoDeps(Iterable<QbtManifest> manifests) {
-        ImmutableMultimap.Builder<PackageTip, PackageTip> b = ImmutableMultimap.builder();
+    private static ImmutableMultimap<RepoTip, RepoTip> computeRepoDeps(Iterable<QbtManifest> manifests) {
+        ImmutableMultimap.Builder<RepoTip, RepoTip> b = ImmutableMultimap.builder();
         for(QbtManifest manifest : manifests) {
             DependencyComputer<?, LazyCollector<PackageTip>> dc = new SimpleDependencyComputer<LazyCollector<PackageTip>>(manifest) {
                 @Override
@@ -114,12 +115,12 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                     return ret;
                 }
             };
-            for(Map.Entry<PackageTip, RepoManifest> e : manifest.repos.entrySet()) {
-                PackageTip repo = e.getKey();
+            for(Map.Entry<RepoTip, RepoManifest> e : manifest.repos.entrySet()) {
+                RepoTip repo = e.getKey();
                 for(String packageName : e.getValue().packages.keySet()) {
-                    PackageTip pkg = repo.replacePackage(packageName);
+                    PackageTip pkg = repo.toPackage(packageName);
                     for(PackageTip depPkg : dc.compute(pkg).forceSet()) {
-                        PackageTip depRepo = manifest.packageToRepo.get(depPkg);
+                        RepoTip depRepo = manifest.packageToRepo.get(depPkg);
                         if(repo.equals(depRepo)) {
                             // you're cool
                             continue;
@@ -133,10 +134,10 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
     }
 
     private static final class StepResult {
-        public final ImmutableList<Pair<PackageTip, VcsVersionDigest>> updates;
+        public final ImmutableList<Pair<RepoTip, VcsVersionDigest>> updates;
         public final boolean allBailNow;
 
-        public StepResult(ImmutableList<Pair<PackageTip, VcsVersionDigest>> updates, boolean allBailNow) {
+        public StepResult(ImmutableList<Pair<RepoTip, VcsVersionDigest>> updates, boolean allBailNow) {
             this.updates = updates;
             this.allBailNow = allBailNow;
         }
@@ -152,11 +153,11 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
         private final QbtManifest lhs;
         private final QbtManifest mhs;
         private final QbtManifest rhs;
-        private final ImmutableMultimap<PackageTip, PackageTip> repoDeps;
+        private final ImmutableMultimap<RepoTip, RepoTip> repoDeps;
 
         private final ImmutableList.Builder<Step> stepsBuilder = ImmutableList.builder();
-        private final Set<PackageTip> started = Sets.newHashSet();
-        private final Set<PackageTip> finished = Sets.newHashSet();
+        private final Set<RepoTip> started = Sets.newHashSet();
+        private final Set<RepoTip> finished = Sets.newHashSet();
 
         public StepsBuilder(QbtConfig config, MergeManifests.Strategy strategy, QbtManifest lhs, QbtManifest mhs, QbtManifest rhs) {
             this.config = config;
@@ -167,13 +168,13 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
             this.repoDeps = computeRepoDeps(ImmutableList.of(lhs, mhs, rhs));
         }
 
-        private void addSteps(Iterable<PackageTip> repos, boolean require) {
-            for(PackageTip repo : repos) {
+        private void addSteps(Iterable<RepoTip> repos, boolean require) {
+            for(RepoTip repo : repos) {
                 addSteps(repo, require);
             }
         }
 
-        private VcsVersionDigest requireVersion(QbtManifest manifest, PackageTip repo) {
+        private VcsVersionDigest requireVersion(QbtManifest manifest, RepoTip repo) {
             RepoManifest repoManifest = manifest.repos.get(repo);
             if(repoManifest == null) {
                 throw new IllegalArgumentException("Repo " + repo + " is not present in all manifests");
@@ -181,7 +182,7 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
             return repoManifest.version;
         }
 
-        private void addSteps(final PackageTip repo, boolean require) {
+        private void addSteps(final RepoTip repo, boolean require) {
             if(finished.contains(repo)) {
                 // if it's been actually built already we've got nothing to do
                 return;
@@ -227,7 +228,7 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                             PinnedRepoAccessor lhsResult = config.localPinsRepo.requirePin(repo, lhsVersion);
                             lhsResult.findCommit(overrideRepo.getRoot());
                             overrideRepo.checkout(lhsVersion);
-                            return new StepResult(ImmutableList.<Pair<PackageTip, VcsVersionDigest>>of(), false);
+                            return new StepResult(ImmutableList.<Pair<RepoTip, VcsVersionDigest>>of(), false);
                         }
                     });
                 }
@@ -291,7 +292,7 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                                 return new StepResult(ImmutableList.of(Pair.of(repo, result)), false);
                             }
                             else {
-                                return new StepResult(ImmutableList.<Pair<PackageTip, VcsVersionDigest>>of(), true);
+                                return new StepResult(ImmutableList.<Pair<RepoTip, VcsVersionDigest>>of(), true);
                             }
                         }
                     });

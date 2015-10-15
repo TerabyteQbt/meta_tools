@@ -9,7 +9,6 @@ import misc1.commons.options.OptionsResults;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qbt.HelpTier;
-import qbt.PackageTip;
 import qbt.QbtCommand;
 import qbt.QbtCommandName;
 import qbt.QbtCommandOptions;
@@ -22,6 +21,7 @@ import qbt.options.ManifestOptionsDelegate;
 import qbt.options.RepoActionOptionsDelegate;
 import qbt.repo.LocalRepoAccessor;
 import qbt.repo.PinnedRepoAccessor;
+import qbt.tip.RepoTip;
 import qbt.vcs.CommitDataUtils;
 import qbt.vcs.LocalVcs;
 import qbt.vcs.Repository;
@@ -52,10 +52,10 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
     public int run(OptionsResults<? extends Options> options) throws Exception {
         QbtConfig config = Options.config.getConfig(options);
         QbtManifest manifest = Options.manifest.getResult(options).parse();
-        Collection<PackageTip> repos = Options.repos.getRepos(config, manifest, options);
+        Collection<RepoTip> repos = Options.repos.getRepos(config, manifest, options);
         boolean showBoring = options.get(Options.showBoring);
 
-        for(PackageTip repoTip : repos) {
+        for(RepoTip repoTip : repos) {
             RepoManifest repoManifest = manifest.repos.get(repoTip);
             LocalRepoAccessor localRepoAccessor = config.localRepoFinder.findLocalRepo(repoTip);
 
@@ -111,7 +111,7 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
         return true;
     }
 
-    public static OverrideState getOverrideState(PackageTip repoTip, RepoManifest repoManifest, QbtConfig config, LocalVcs vcs) {
+    public static OverrideState getOverrideState(RepoTip repoTip, RepoManifest repoManifest, QbtConfig config, LocalVcs vcs) {
         Path repoPath = config.localRepoFinder.findLocalRepo(repoTip).dir;
         Repository overrideRepository = vcs.getRepository(repoPath);
         VcsVersionDigest repoHash = overrideRepository.getCurrentCommit();

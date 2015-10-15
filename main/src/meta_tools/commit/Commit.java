@@ -19,7 +19,6 @@ import misc1.commons.options.OptionsResults;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qbt.HelpTier;
-import qbt.PackageTip;
 import qbt.QbtCommand;
 import qbt.QbtCommandName;
 import qbt.QbtCommandOptions;
@@ -35,6 +34,7 @@ import qbt.options.ManifestOptionsResult;
 import qbt.options.RepoActionOptionsDelegate;
 import qbt.repo.LocalRepoAccessor;
 import qbt.repo.PinnedRepoAccessor;
+import qbt.tip.RepoTip;
 import qbt.utils.ProcessHelper;
 import qbt.vcs.Repository;
 import qbt.vcs.VcsRegistry;
@@ -77,7 +77,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
         QbtConfig config = Options.config.getConfig(options);
         ManifestOptionsResult manifestResult = Options.manifest.getResult(options);
         QbtManifest manifest = manifestResult.parse();
-        Collection<PackageTip> repos = Options.repos.getRepos(config, manifest, options);
+        Collection<RepoTip> repos = Options.repos.getRepos(config, manifest, options);
 
         final boolean amend = options.get(Options.amend);
         final boolean force = options.get(Options.force);
@@ -95,10 +95,10 @@ public final class Commit extends QbtCommand<Commit.Options> {
         }
         final List<QbtManifest> parentManifests = parentManifestsBuilder.build();
 
-        final ImmutableMap.Builder<PackageTip, CommitMaker> commitsBuilder = ImmutableMap.builder();
+        final ImmutableMap.Builder<RepoTip, CommitMaker> commitsBuilder = ImmutableMap.builder();
         final ImmutableList.Builder<String> messagePrompt = ImmutableList.builder();
         boolean fail = false;
-        for(final PackageTip repo : repos) {
+        for(final RepoTip repo : repos) {
             RepoManifest repoManifest = manifest.repos.get(repo);
 
             final LocalRepoAccessor localRepoAccessor = config.localRepoFinder.findLocalRepo(repo);
@@ -311,8 +311,8 @@ public final class Commit extends QbtCommand<Commit.Options> {
             }
         }
         QbtManifest.Builder newManifest = manifest.builder();
-        for(Map.Entry<PackageTip, CommitMaker> e : commitsBuilder.build().entrySet()) {
-            PackageTip repo = e.getKey();
+        for(Map.Entry<RepoTip, CommitMaker> e : commitsBuilder.build().entrySet()) {
+            RepoTip repo = e.getKey();
             VcsVersionDigest repoVersion = e.getValue().commit(message);
             newManifest = newManifest.with(repo, manifest.repos.get(repo).builder().withVersion(repoVersion).build());
         }
