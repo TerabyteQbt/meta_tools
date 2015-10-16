@@ -1,4 +1,5 @@
 meta_tools.commit.Commit
+meta_tools.devproto.DevProto
 meta_tools.merge.MergeDriver
 meta_tools.merge.ResolveManifestConflicts
 meta_tools.sdiff.Sdiff
