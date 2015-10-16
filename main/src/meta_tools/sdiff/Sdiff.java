@@ -17,7 +17,6 @@ import misc1.commons.options.OptionsResults;
 import misc1.commons.options.UnparsedOptionsFragment;
 import org.apache.commons.lang3.tuple.Pair;
 import qbt.HelpTier;
-import qbt.PackageTip;
 import qbt.QbtCommand;
 import qbt.QbtCommandName;
 import qbt.QbtCommandOptions;
@@ -30,6 +29,7 @@ import qbt.diffmanifests.MapDiffer;
 import qbt.options.ConfigOptionsDelegate;
 import qbt.repo.LocalRepoAccessor;
 import qbt.repo.PinnedRepoAccessor;
+import qbt.tip.RepoTip;
 import qbt.utils.ProcessHelper;
 import qbt.vcs.LocalVcs;
 import qbt.vcs.Repository;
@@ -71,8 +71,8 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
             QbtManifest base = QbtManifest.parse(workspaceRoot.resolve("qbt-manifest"));
 
             QbtManifest.Builder b = base.builder();
-            for(Map.Entry<PackageTip, RepoManifest> e : base.repos.entrySet()) {
-                PackageTip repo = e.getKey();
+            for(Map.Entry<RepoTip, RepoManifest> e : base.repos.entrySet()) {
+                RepoTip repo = e.getKey();
                 RepoManifest repoManifest = e.getValue();
                 VcsVersionDigest version = repoManifest.version;
                 LocalRepoAccessor localRepoAccessor = config.localRepoFinder.findLocalRepo(repo);
@@ -174,23 +174,23 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
             }
         };
 
-        new MapDiffer<PackageTip, VcsVersionDigest>(Maps.transformValues(lhs.repos, repoVersionFunction), Maps.transformValues(rhs.repos, repoVersionFunction), PackageTip.COMPARATOR) {
+        new MapDiffer<RepoTip, VcsVersionDigest>(Maps.transformValues(lhs.repos, repoVersionFunction), Maps.transformValues(rhs.repos, repoVersionFunction), RepoTip.TYPE.COMPARATOR) {
             @Override
-            protected void edit(PackageTip repo, VcsVersionDigest lhs, VcsVersionDigest rhs) {
+            protected void edit(RepoTip repo, VcsVersionDigest lhs, VcsVersionDigest rhs) {
                 run(repo, "edit", ImmutableMap.of("REPO_VERSION_LHS", lhs, "REPO_VERSION_RHS", rhs));
             }
 
             @Override
-            protected void add(PackageTip repo, VcsVersionDigest value) {
+            protected void add(RepoTip repo, VcsVersionDigest value) {
                 run(repo, "add", ImmutableMap.of("REPO_VERSION", value));
             }
 
             @Override
-            protected void del(PackageTip repo, VcsVersionDigest value) {
+            protected void del(RepoTip repo, VcsVersionDigest value) {
                 run(repo, "del", ImmutableMap.of("REPO_VERSION", value));
             }
 
-            private void run(PackageTip repo, String deltaType, Map<String, VcsVersionDigest> versions) {
+            private void run(RepoTip repo, String deltaType, Map<String, VcsVersionDigest> versions) {
                 if(options.get(Options.override)) {
                     LocalRepoAccessor localRepoAccessor = config.localRepoFinder.findLocalRepo(repo);
                     if(localRepoAccessor == null) {
@@ -207,7 +207,7 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
                 }
             }
 
-            private void run2(Path dir, LocalVcs localVcs, final PackageTip repo, String deltaType, Map<String, VcsVersionDigest> versions) {
+            private void run2(Path dir, LocalVcs localVcs, final RepoTip repo, String deltaType, Map<String, VcsVersionDigest> versions) {
                 for(VcsVersionDigest version : versions.values()) {
                     if(localVcs != null && localVcs.getRepository(dir).commitExists(version)) {
                         continue;
@@ -242,7 +242,7 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
                 for(Map.Entry<String, VcsVersionDigest> e : versions.entrySet()) {
                     p = p.putEnv(e.getKey(), e.getValue().getRawDigest().toString());
                 }
-                p = p.putEnv("REPO_NAME", repo.pkg);
+                p = p.putEnv("REPO_NAME", repo.name);
                 p = p.putEnv("REPO_TIP", repo.tip);
                 if("true".equals(vcsConfig.get(configPrefix + "prefix"))) {
                     p = p.combineError();
