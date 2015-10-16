@@ -58,14 +58,6 @@ import qbt.recursive.cvrpd.CvRecursivePackageDataMapper;
 import qbt.tip.PackageTip;
 import qbt.utils.ProcessHelper;
 
-/*
- * Should probably:
- *
- * *) split `config` into multiple input files, one per protocol so they can be gitignored or not separately
- * *) extras should get their entire runtime env, not just the one artifact
- * *) canonicalizationKey may be slightly insane?
- */
-
 public final class DevProto extends QbtCommand<DevProto.Options> {
     private static final Logger LOGGER = LoggerFactory.getLogger(DevProto.class);
 
@@ -118,7 +110,7 @@ public final class DevProto extends QbtCommand<DevProto.Options> {
                                 input.materialize(inputsDir);
                             }
 
-                            ProcessHelper p = new ProcessHelper(packageDir.getDir(), new String[] {"./.qbt-dev-proto/" + proto});
+                            ProcessHelper p = new ProcessHelper(packageDir.getDir(), new String[] {"./.qbt-dev-proto/" + proto + ".exec"});
                             p = p.combineError();
                             p = p.putEnv("INPUT_DEV_PROTO_DIR", inputsDir.toAbsolutePath().toString());
                             p = p.putEnv("OUTPUT_DEV_PROTO_DIR", outputsDir.toAbsolutePath().toString());
@@ -163,23 +155,18 @@ public final class DevProto extends QbtCommand<DevProto.Options> {
                             }
 
                             try(PackageDirectory packageDir = PackageDirectories.forCvcResult(requireRepoResult)) {
-                                Path script = packageDir.getDir().resolve(".qbt-dev-proto/config");
+                                Path script = packageDir.getDir().resolve(".qbt-dev-proto/" + proto + ".inputs");
                                 if(!Files.isRegularFile(script)) {
                                     return Maybe.<ImmutableList<DevProtoInput>>not();
                                 }
 
                                 GroovyShell shell = new GroovyShell();
-                                DevProtoConfig protoConfig;
+                                List<DevProtoInput> inputs;
                                 try {
-                                    protoConfig = (DevProtoConfig)shell.evaluate(script.toFile());
+                                    inputs = (List<DevProtoInput>)shell.evaluate(script.toFile());
                                 }
                                 catch(Exception e) {
                                     throw ExceptionUtils.commute(e);
-                                }
-
-                                List<DevProtoInput> inputs = protoConfig.map.get(proto);
-                                if(inputs == null) {
-                                    return Maybe.<ImmutableList<DevProtoInput>>not();
                                 }
 
                                 return Maybe.of(ImmutableList.copyOf(inputs));

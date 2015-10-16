@@ -137,7 +137,7 @@ public final class DevProtoInputs {
         }
     };
 
-    public static DevProtoInput extra(final String path, final PackageTip pkg) {
+    public static DevProtoInput extra(final PackageTip pkg) {
         return new DevProtoInput() {
             @Override
             public ComputationTree<DevProtoResolvedInput> computationTree(CvRecursivePackageData<CumulativeVersionComputer.Result> r, Stage1Callback cb) {
@@ -148,7 +148,7 @@ public final class DevProtoInputs {
                         return new DevProtoResolvedInput() {
                             @Override
                             public void materialize(Path inputsDir) {
-                                BuildUtils.materializeArtifact(inputsDir.resolve("extra").resolve(path), input.result.getRight());
+                                BuildUtils.materializeRuntimeArtifacts(inputsDir.resolve("extra").resolve(pkg.name), input);
                             }
                         };
                     }
