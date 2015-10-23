@@ -137,6 +137,10 @@ public final class DevProtoInputs {
         }
     };
 
+    public static DevProtoInput extra(String pkg) {
+        return extra(PackageTip.TYPE.parseRequire(pkg));
+    }
+
     public static DevProtoInput extra(final PackageTip pkg) {
         return new DevProtoInput() {
             @Override
