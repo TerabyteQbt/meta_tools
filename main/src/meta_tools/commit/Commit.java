@@ -160,8 +160,8 @@ public final class Commit extends QbtCommand<Commit.Options> {
                     addCommit(new CommitMaker() {
                         @Override
                         public VcsVersionDigest commit(String message) {
-                            int removed = repoRepository.revWalk(manifestRepoVersion, currentRepoVersion).size();
-                            int added = repoRepository.revWalk(currentRepoVersion, manifestRepoVersion).size();
+                            int removed = repoRepository.revWalk(ImmutableList.of(manifestRepoVersion), ImmutableList.of(currentRepoVersion)).size();
+                            int added = repoRepository.revWalk(ImmutableList.of(currentRepoVersion), ImmutableList.of(manifestRepoVersion)).size();
                             if(!repoRepository.isClean()) {
                                 repoRepository.commitAll("placeholder");
                             }

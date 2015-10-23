@@ -125,8 +125,8 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
         }
         String canonicalOneliner = CommitDataUtils.getOneLiner(overrideRepository, canonicalHash);
 
-        int commitsAhead = overrideRepository.revWalk(canonicalHash, repoHash).size();
-        int commitsBehind = overrideRepository.revWalk(repoHash, canonicalHash).size();
+        int commitsAhead = overrideRepository.revWalk(ImmutableList.of(canonicalHash), ImmutableList.of(repoHash)).size();
+        int commitsBehind = overrideRepository.revWalk(ImmutableList.of(repoHash), ImmutableList.of(canonicalHash)).size();
 
         boolean isDirty = !overrideRepository.isClean();
 
