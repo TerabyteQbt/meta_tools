@@ -129,7 +129,7 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
                     final CommitData cd = e.getValue();
 
                     ImmutableList.Builder<ComputationTree<VcsVersionDigest>> parentComputationTreesBuilder = ImmutableList.builder();
-                    for(VcsVersionDigest parent : cd.parents) {
+                    for(VcsVersionDigest parent : cd.get(CommitData.PARENTS)) {
                         if(revWalk.containsKey(parent)) {
                             parentComputationTreesBuilder.add(computationTrees.get(parent));
                         }
@@ -191,17 +191,17 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
             @Override
             protected VcsVersionDigest mapBase(VcsVersionDigest base) {
                 CommitData cd = metaRepository.getCommitData(base);
-                cd = cd.withTree(liftTree(cd.tree));
-                cd = cd.withParents(ImmutableList.of(base));
-                cd = cd.withMessage("(submanifest import)");
+                cd = cd.set(CommitData.TREE, liftTree(cd.get(CommitData.TREE)));
+                cd = cd.set(CommitData.PARENTS, ImmutableList.of(base));
+                cd = cd.set(CommitData.MESSAGE, "(submanifest import)");
                 return metaRepository.createCommit(cd);
             }
 
             @Override
             protected VcsVersionDigest map(VcsVersionDigest commit, CommitData cd0, ImmutableList<VcsVersionDigest> parents) {
                 CommitData cd = cd0;
-                cd = cd.withTree(liftTree(cd.tree));
-                cd = cd.withParents(parents);
+                cd = cd.set(CommitData.TREE, liftTree(cd.get(CommitData.TREE)));
+                cd = cd.set(CommitData.PARENTS, parents);
                 return metaRepository.createCommit(cd);
             }
         }.build("lift", Options.lifts);
@@ -246,7 +246,7 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
                 if(keptParents.isEmpty()) {
                     throw new IllegalArgumentException("Root commit outside of bases!");
                 }
-                VcsTreeDigest selfTree = splitTree(cd.tree);
+                VcsTreeDigest selfTree = splitTree(cd.get(CommitData.TREE));
                 if(keptParents.size() == 1) {
                     VcsVersionDigest parent = keptParents.get(0);
                     VcsTreeDigest parentTree = metaRepository.getSubtree(parent, "");
@@ -255,8 +255,8 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
                         return parent;
                     }
                 }
-                cd = cd.withTree(selfTree);
-                cd = cd.withParents(keptParents);
+                cd = cd.set(CommitData.TREE, selfTree);
+                cd = cd.set(CommitData.PARENTS, keptParents);
                 return metaRepository.createCommit(cd);
             }
         }.build("split", Options.splits);
