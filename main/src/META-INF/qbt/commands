@@ -1,7 +1,7 @@
 meta_tools.commit.Commit
 meta_tools.devproto.DevProto
+meta_tools.diff.Sdiff
 meta_tools.merge.MergeDriver
 meta_tools.merge.ResolveManifestConflicts
-meta_tools.sdiff.Sdiff
 meta_tools.status.OverrideStatus
 meta_tools.submanifest.Submanifest

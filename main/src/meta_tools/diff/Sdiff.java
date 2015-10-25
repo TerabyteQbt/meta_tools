@@ -1,4 +1,4 @@
-package meta_tools.sdiff;
+package meta_tools.diff;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
