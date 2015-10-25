@@ -11,6 +11,7 @@ import misc1.commons.Maybe;
 import misc1.commons.options.NamedBooleanFlagOptionsFragment;
 import misc1.commons.options.NamedStringListArgumentOptionsFragment;
 import misc1.commons.options.NamedStringSingletonArgumentOptionsFragment;
+import misc1.commons.options.OptionsDelegate;
 import misc1.commons.options.OptionsException;
 import misc1.commons.options.OptionsFragment;
 import misc1.commons.options.OptionsResults;
@@ -36,16 +37,20 @@ import qbt.vcs.Repository;
 import qbt.vcs.git.GitLocalVcs;
 
 public class Sdiff extends QbtCommand<Sdiff.Options> {
+    public static final class CommonOptionsDelegate<O> implements OptionsDelegate {
+        public final OptionsFragment<O, ?, Boolean> override = new NamedBooleanFlagOptionsFragment<O>(ImmutableList.of("--override", "-o"), "Run commands in overrides");
+        public final OptionsFragment<O, ?, ImmutableList<String>> extraArgs = new NamedStringListArgumentOptionsFragment<O>(ImmutableList.of("--extra-arg"), "Extra argument to subcommands (available as positional paramters $1, etc.  in shell)");
+    }
+
     @QbtCommandName("sdiff")
     public static interface Options extends QbtCommandOptions {
         public static final ConfigOptionsDelegate<Options> config = new ConfigOptionsDelegate<Options>();
-        public static final OptionsFragment<Options, ?, Boolean> override = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("--override", "-o"), "Run commands in overrides");
+        public static final CommonOptionsDelegate<Options> commonOptions = new CommonOptionsDelegate<Options>();
         public static final OptionsFragment<Options, ?, String> type = new NamedStringSingletonArgumentOptionsFragment<Options>(ImmutableList.of("--type"), Maybe.<String>of(null), "Type of diff to show");
         public static final OptionsFragment<Options, ?, Boolean> log = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("--log"), "Show a log");
         public static final OptionsFragment<Options, ?, Boolean> diff = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("--diff"), "Show a diff");
         public static final OptionsFragment<Options, ?, Boolean> logDiff = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("--log-diff"), "Show a log diff");
         public static final OptionsFragment<Options, ?, ImmutableList<String>> manifests = new UnparsedOptionsFragment<Options>("\"Manifests\" to diff.  Give a commitlike, \".\" for the working tree manifest, and \"SAT\" for working tree manifest overridden with HEAD from satellites", false, 2, 2);
-        public static final OptionsFragment<Options, ?, ImmutableList<String>> extraArgs = new NamedStringListArgumentOptionsFragment<Options>(ImmutableList.of("--extra-arg"), "Extra argument to subcommands (available as positional paramters $1, etc.  in shell)");
     }
 
     @Override
@@ -155,7 +160,6 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
         }
         QbtManifest lhs = resolveManifest(workspaceRoot, config, manifests.get(0));
         QbtManifest rhs = resolveManifest(workspaceRoot, config, manifests.get(1));
-        final ImmutableMap<String, String> vcsConfig = resolveConfig(workspaceRoot);
 
         String type = options.get(Options.type);
         type = checkType(type, options.get(Options.log), "log");
@@ -164,16 +168,21 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
         if(type == null) {
             type = "log";
         }
-        final String typeFinal = type;
 
-        Function<RepoManifest, VcsVersionDigest> repoVersionFunction = new Function<RepoManifest, VcsVersionDigest>() {
-            @Override
-            public VcsVersionDigest apply(RepoManifest repoManifest) {
-                return repoManifest.version;
-            }
-        };
+        return run(config, workspaceRoot, type, options, Options.commonOptions, lhs, rhs);
+    }
 
-        new MapDiffer<RepoTip, VcsVersionDigest>(Maps.transformValues(lhs.repos, repoVersionFunction), Maps.transformValues(rhs.repos, repoVersionFunction), RepoTip.TYPE.COMPARATOR) {
+    private static final Function<RepoManifest, VcsVersionDigest> REPO_VERSION_FUNCTION = new Function<RepoManifest, VcsVersionDigest>() {
+        @Override
+        public VcsVersionDigest apply(RepoManifest repoManifest) {
+            return repoManifest.version;
+        }
+    };
+
+    public static <O> int run(final QbtConfig config, Path workspaceRoot, final String type, final OptionsResults<? extends O> options, final CommonOptionsDelegate<O> commonsOptions, QbtManifest lhs, QbtManifest rhs) {
+        final ImmutableMap<String, String> vcsConfig = resolveConfig(workspaceRoot);
+
+        new MapDiffer<RepoTip, VcsVersionDigest>(Maps.transformValues(lhs.repos, REPO_VERSION_FUNCTION), Maps.transformValues(rhs.repos, REPO_VERSION_FUNCTION), RepoTip.TYPE.COMPARATOR) {
             @Override
             protected void edit(RepoTip repo, VcsVersionDigest lhs, VcsVersionDigest rhs) {
                 run(repo, "edit", ImmutableMap.of("REPO_VERSION_LHS", lhs, "REPO_VERSION_RHS", rhs));
@@ -190,7 +199,7 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
             }
 
             private void run(RepoTip repo, String deltaType, Map<String, VcsVersionDigest> versions) {
-                if(options.get(Options.override)) {
+                if(options.get(commonsOptions.override)) {
                     LocalRepoAccessor localRepoAccessor = config.localRepoFinder.findLocalRepo(repo);
                     if(localRepoAccessor == null) {
                         return;
@@ -227,7 +236,7 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
                 if(localVcs == null) {
                     throw new IllegalStateException("Sdiff.run() called with no versions");
                 }
-                String configPrefix = localVcs.getName() + "." + typeFinal + "." + deltaType + ".";
+                String configPrefix = localVcs.getName() + "." + type + "." + deltaType + ".";
                 String command = vcsConfig.get(configPrefix + "command");
                 if(command == null) {
                     return;
@@ -236,7 +245,7 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
                 commandBuilder.add("sh", "-c");
                 commandBuilder.add(command);
                 commandBuilder.add("-");
-                commandBuilder.addAll(options.get(Options.extraArgs));
+                commandBuilder.addAll(options.get(commonsOptions.extraArgs));
                 ProcessHelper p = new ProcessHelper(dir, commandBuilder.build().toArray(new String[0]));
                 for(Map.Entry<String, VcsVersionDigest> e : versions.entrySet()) {
                     p = p.putEnv(e.getKey(), e.getValue().getRawDigest().toString());
