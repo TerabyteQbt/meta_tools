@@ -15,13 +15,13 @@ import misc1.commons.options.OptionsException;
 import misc1.commons.options.OptionsFragment;
 import misc1.commons.options.OptionsResults;
 import misc1.commons.options.UnparsedOptionsFragment;
-import org.apache.commons.lang3.tuple.Pair;
 import qbt.HelpTier;
 import qbt.QbtCommand;
 import qbt.QbtCommandName;
 import qbt.QbtCommandOptions;
 import qbt.QbtManifest;
 import qbt.QbtTempDir;
+import qbt.QbtUtils;
 import qbt.RepoManifest;
 import qbt.VcsVersionDigest;
 import qbt.config.QbtConfig;
@@ -146,17 +146,16 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
 
     @Override
     public int run(final OptionsResults<? extends Options> options) throws Exception {
-        Pair<Path, QbtConfig> configPair = Options.config.getPair(options);
-        Path configFile = configPair.getLeft();
-        final QbtConfig config = configPair.getRight();
+        final QbtConfig config = Options.config.getConfig(options);
+        Path workspaceRoot = QbtUtils.findInMeta("", null);
 
         ImmutableList<String> manifests = options.get(Options.manifests);
         if(manifests.size() != 2) {
             throw new OptionsException("Exactly two manifests must be specified");
         }
-        QbtManifest lhs = resolveManifest(configFile.getParent(), config, manifests.get(0));
-        QbtManifest rhs = resolveManifest(configFile.getParent(), config, manifests.get(1));
-        final ImmutableMap<String, String> vcsConfig = resolveConfig(configFile.getParent());
+        QbtManifest lhs = resolveManifest(workspaceRoot, config, manifests.get(0));
+        QbtManifest rhs = resolveManifest(workspaceRoot, config, manifests.get(1));
+        final ImmutableMap<String, String> vcsConfig = resolveConfig(workspaceRoot);
 
         String type = options.get(Options.type);
         type = checkType(type, options.get(Options.log), "log");
