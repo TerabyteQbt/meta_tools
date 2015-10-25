@@ -4,3 +4,4 @@ meta_tools.merge.MergeDriver
 meta_tools.merge.ResolveManifestConflicts
 meta_tools.sdiff.Sdiff
 meta_tools.status.OverrideStatus
+meta_tools.submanifest.Submanifest

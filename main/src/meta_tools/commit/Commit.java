@@ -36,6 +36,7 @@ import qbt.repo.LocalRepoAccessor;
 import qbt.repo.PinnedRepoAccessor;
 import qbt.tip.RepoTip;
 import qbt.utils.ProcessHelper;
+import qbt.vcs.CommitData;
 import qbt.vcs.Repository;
 import qbt.vcs.VcsRegistry;
 
@@ -90,7 +91,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
         }
 
         ImmutableList.Builder<QbtManifest> parentManifestsBuilder = ImmutableList.builder();
-        for(VcsVersionDigest metaParent : metaRepository.getCommitData(metaRepository.getCurrentCommit()).parents) {
+        for(VcsVersionDigest metaParent : metaRepository.getCommitData(metaRepository.getCurrentCommit()).get(CommitData.PARENTS)) {
             parentManifestsBuilder.add(QbtManifest.parse(metaParent.getRawDigest() + ":qbt-manifest", metaRepository.showFile(metaParent, "qbt-manifest")));
         }
         final List<QbtManifest> parentManifests = parentManifestsBuilder.build();
@@ -187,7 +188,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
                     final List<VcsVersionDigest> expectedParents = expectedParentsBuilder.build();
                     LOGGER.debug("[" + repo + "] expectedParents = " + expectedParents);
 
-                    if(manifestRepoVersion.equals(currentRepoVersion) && expectedParents.equals(repoRepository.getCommitData(currentRepoVersion).parents)) {
+                    if(manifestRepoVersion.equals(currentRepoVersion) && expectedParents.equals(repoRepository.getCommitData(currentRepoVersion).get(CommitData.PARENTS))) {
                         // satellite HEAD is where it should be and the history makes sense (HEAD in meta only added one commit)
 
                         // well, this is a mess:
@@ -270,7 +271,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
         String message = options.get(Options.message);
         if(message == null) {
             if(amend) {
-                message = metaRepository.getCommitData(metaRepository.getCurrentCommit()).message;
+                message = metaRepository.getCommitData(metaRepository.getCurrentCommit()).get(CommitData.MESSAGE);
             }
             else {
                 ImmutableList.Builder<String> promptLines = ImmutableList.builder();
