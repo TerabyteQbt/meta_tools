@@ -49,7 +49,6 @@ public final class Commit extends QbtCommand<Commit.Options> {
         public static final ManifestOptionsDelegate<Options> manifest = new ManifestOptionsDelegate<Options>();
         public static final RepoActionOptionsDelegate<Options> repos = new RepoActionOptionsDelegate<Options>(RepoActionOptionsDelegate.NoArgsBehaviour.OVERRIDES);
         public static final OptionsFragment<Options, ?, Boolean> amend = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("--amend"), "Amend existing commit instead of making a new one");
-        public static final OptionsFragment<Options, ?, Boolean> force = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("--force", "-f"), "Forcibly rebuild history/state to match recommended state rather than checking expected starting conditions closely and carefully avoiding history/state loss");
         public static final OptionsFragment<Options, ?, String> metaVcs = new NamedStringSingletonArgumentOptionsFragment<Options>(ImmutableList.of("--metaVcs"), Maybe.of("git"), "VCS for meta");
         public static final OptionsFragment<Options, ?, String> message = new NamedStringSingletonArgumentOptionsFragment<Options>(ImmutableList.of("--message", "-m"), Maybe.<String>of(null), "Commit message");
     }
@@ -81,7 +80,6 @@ public final class Commit extends QbtCommand<Commit.Options> {
         Collection<RepoTip> repos = Options.repos.getRepos(config, manifest, options);
 
         final boolean amend = options.get(Options.amend);
-        final boolean force = options.get(Options.force);
         String metaVcs = options.get(Options.metaVcs);
 
         Path metaDir = QbtUtils.findInMeta("", null);
@@ -152,27 +150,8 @@ public final class Commit extends QbtCommand<Commit.Options> {
                     }
 
                     // not a blessed state
-                    if(!force) {
-                        LOGGER.error("[" + repo + "] Current state unintelligible!");
-                        return true;
-                    }
-
-                    // uh, OK, time for some violence
-                    addCommit(new CommitMaker() {
-                        @Override
-                        public VcsVersionDigest commit(String message) {
-                            int removed = repoRepository.revWalk(ImmutableList.of(manifestRepoVersion), ImmutableList.of(currentRepoVersion)).size();
-                            int added = repoRepository.revWalk(ImmutableList.of(currentRepoVersion), ImmutableList.of(manifestRepoVersion)).size();
-                            if(!repoRepository.isClean()) {
-                                repoRepository.commitAll("placeholder");
-                            }
-                            VcsVersionDigest commit = repoRepository.commitCrosswindSquash(ImmutableList.of(manifestRepoVersion), message);
-                            LOGGER.info("[" + repo + "] Committed (crosswound squash onto " + manifestRepoVersion.getRawDigest() + ", removed " + removed + ", added " + added + ") " + commit.getRawDigest());
-                            return commit;
-                        }
-                    });
-                    messagePrompt.add("[" + repo + "] Dirty and a mess, crosswind squash");
-                    return false;
+                    LOGGER.error("[" + repo + "] Current state unintelligible!");
+                    return true;
                 }
 
                 private boolean makeAmend() {
@@ -237,25 +216,8 @@ public final class Commit extends QbtCommand<Commit.Options> {
                     }
 
                     // not a blessed state
-                    if(!force) {
-                        LOGGER.error("[" + repo + "] Current state unintelligible!");
-                        return true;
-                    }
-
-                    // uh, OK, time for some violence
-                    addCommit(new CommitMaker() {
-                        @Override
-                        public VcsVersionDigest commit(String message) {
-                            if(!repoRepository.isClean()) {
-                                repoRepository.commitAll("placeholder");
-                            }
-                            VcsVersionDigest commit = repoRepository.commitCrosswindSquash(expectedParents, message);
-                            LOGGER.info("[" + repo + "] Committed (crosswound squash onto " + Lists.transform(expectedParents, VcsVersionDigest.DEPARSE_FUNCTION) + ") " + commit.getRawDigest());
-                            return commit;
-                        }
-                    });
-                    messagePrompt.add("[" + repo + "] Dirty and a mess, crosswind squash");
-                    return false;
+                    LOGGER.error("[" + repo + "] Current state unintelligible!");
+                    return true;
                 }
             }
             if(new CommitMakerMaker().make()) {
