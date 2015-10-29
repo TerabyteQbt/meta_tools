@@ -3,6 +3,8 @@ package meta_tools.status;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import java.util.Collection;
+import misc1.commons.options.NamedBooleanFlagOptionsFragment;
+import misc1.commons.options.OptionsFragment;
 import misc1.commons.options.OptionsResults;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +32,7 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
         public static final ConfigOptionsDelegate<Options> config = new ConfigOptionsDelegate<Options>();
         public static final ManifestOptionsDelegate<Options> manifest = new ManifestOptionsDelegate<Options>();
         public static final RepoActionOptionsDelegate<Options> repos = new RepoActionOptionsDelegate<Options>(RepoActionOptionsDelegate.NoArgsBehaviour.OVERRIDES);
+        public static final OptionsFragment<Options, ?, Boolean> verbose = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("-v"), "Show more detailed status for dirty repos");
     }
 
     @Override
@@ -47,6 +50,7 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
         QbtConfig config = Options.config.getConfig(options);
         QbtManifest manifest = Options.manifest.getResult(options).parse();
         Collection<RepoTip> repos = Options.repos.getRepos(config, manifest, options);
+        boolean verbose = options.get(Options.verbose);
 
         for(RepoTip repo : repos) {
             RepoManifest repoManifest = manifest.repos.get(repo);
@@ -79,6 +83,12 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
             ImmutableList<String> banner = bannerBuilder.build();
             if(!banner.isEmpty()) {
                 LOGGER.info("[" + repo + "] " + Joiner.on(", ").join(banner));
+            }
+
+            if(verbose && isDirty) {
+                for(String line : repoRepository.getUserVisibleStatus()) {
+                    LOGGER.info("[" + repo + "] [status] " + line);
+                }
             }
         }
         return 0;
