@@ -38,6 +38,7 @@ import qbt.repo.PinnedRepoAccessor;
 import qbt.tip.RepoTip;
 import qbt.utils.ProcessHelper;
 import qbt.vcs.CommitData;
+import qbt.vcs.CommitLevel;
 import qbt.vcs.Repository;
 import qbt.vcs.VcsRegistry;
 
@@ -52,6 +53,8 @@ public final class Commit extends QbtCommand<Commit.Options> {
         public static final OptionsFragment<Options, ?, Boolean> amend = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("--amend"), "Amend existing commit instead of making a new one");
         public static final OptionsFragment<Options, ?, String> metaVcs = new NamedStringSingletonArgumentOptionsFragment<Options>(ImmutableList.of("--metaVcs"), Maybe.of("git"), "VCS for meta");
         public static final OptionsFragment<Options, ?, String> message = new NamedStringSingletonArgumentOptionsFragment<Options>(ImmutableList.of("--message", "-m"), Maybe.<String>of(null), "Commit message");
+        public static final OptionsFragment<Options, ?, Boolean> aggressive = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("-a"), "Commit harder.");
+        public static final OptionsFragment<Options, ?, Boolean> veryAggressive = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("-A"), "Commit even harder.");
     }
 
     @Override
@@ -79,6 +82,17 @@ public final class Commit extends QbtCommand<Commit.Options> {
         ManifestOptionsResult manifestResult = Options.manifest.getResult(options);
         QbtManifest manifest = manifestResult.parse();
         Collection<RepoTip> repos = Options.repos.getRepos(config, manifest, options);
+        final CommitLevel commitLevel;
+        {
+            CommitLevel commitLevelTemp = CommitLevel.STAGED;
+            if(options.get(Options.aggressive)) {
+                commitLevelTemp = CommitLevel.MODIFIED;
+            }
+            if(options.get(Options.veryAggressive)) {
+                commitLevelTemp = CommitLevel.UNTRACKED;
+            }
+            commitLevel = commitLevelTemp;
+        }
 
         final boolean amend = options.get(Options.amend);
         String metaVcs = options.get(Options.metaVcs);
@@ -136,7 +150,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
                 }
 
                 private boolean makeNonAmend() {
-                    if(repoRepository.isClean()) {
+                    if(repoRepository.isClean(commitLevel)) {
                         // nothing to do
                         return false;
                     }
@@ -145,7 +159,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
                     addCommit(new CommitMaker() {
                         @Override
                         public VcsVersionDigest commit(String message) {
-                            VcsVersionDigest commit = repoRepository.commitAll(message);
+                            VcsVersionDigest commit = repoRepository.commit(false, message, commitLevel);
                             LOGGER.info("[" + repo + "] Committed " + commit.getRawDigest());
                             return commit;
                         }
@@ -185,19 +199,19 @@ public final class Commit extends QbtCommand<Commit.Options> {
                         addCommit(new CommitMaker() {
                             @Override
                             public VcsVersionDigest commit(String message) {
-                                VcsVersionDigest commit = repoRepository.commitAllAmend(message);
+                                VcsVersionDigest commit = repoRepository.commit(true, message, commitLevel);
                                 LOGGER.info("[" + repo + "] Committed (amend of " + currentRepoVersion.getRawDigest() + ") " + commit.getRawDigest());
                                 return commit;
                             }
                         });
-                        messagePrompt.add("[" + repo + "] " + (repoRepository.isClean() ? "Clean" : "Dirty") + ", amend");
+                        messagePrompt.add("[" + repo + "] " + (repoRepository.isClean(commitLevel) ? "Clean" : "Dirty") + ", amend");
                         return false;
                     }
 
                     if(ImmutableSet.copyOf(expectedParents).equals(ImmutableSet.of(currentRepoVersion))) {
                         // satellite HEAD is where it should be and the history makes other sense (HEAD in meta made no change)
 
-                        if(repoRepository.isClean()) {
+                        if(repoRepository.isClean(commitLevel)) {
                             // nothing to do
                             return false;
                         }
@@ -206,7 +220,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
                         addCommit(new CommitMaker() {
                             @Override
                             public VcsVersionDigest commit(String message) {
-                                VcsVersionDigest commit = repoRepository.commitAll(message);
+                                VcsVersionDigest commit = repoRepository.commit(false, message, commitLevel);
                                 LOGGER.info("[" + repo + "] Committed " + commit.getRawDigest());
                                 return commit;
                             }
@@ -280,14 +294,8 @@ public final class Commit extends QbtCommand<Commit.Options> {
             newManifest = newManifest.with(repo, manifest.repos.get(repo).builder().withVersion(repoVersion).build());
         }
         manifestResult.deparse(newManifest.build());
-        if(!amend) {
-            VcsVersionDigest commit = metaRepository.commitAll(message);
-            LOGGER.info("[meta] Committed " + commit.getRawDigest());
-        }
-        else {
-            VcsVersionDigest commit = metaRepository.commitAllAmend(message);
-            LOGGER.info("[meta] Committed (amend) " + commit.getRawDigest());
-        }
+        VcsVersionDigest commit = metaRepository.commit(amend, message, CommitLevel.MODIFIED);
+        LOGGER.info("[meta] Committed" + (amend ? " (amend)" : "") + " " + commit.getRawDigest());
         return 0;
     }
 }
