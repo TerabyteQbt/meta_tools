@@ -3,6 +3,7 @@ package meta_tools.commit;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -115,6 +116,11 @@ public final class Commit extends QbtCommand<Commit.Options> {
 
             class CommitMakerMaker {
                 public boolean make() {
+                    if(!manifestRepoVersion.equals(currentRepoVersion)) {
+                        LOGGER.error("[" + repo + "] Current state unintelligible: HEAD does not match manifest");
+                        return true;
+                    }
+
                     return amend ? makeAmend() : makeNonAmend();
                 }
 
@@ -130,28 +136,22 @@ public final class Commit extends QbtCommand<Commit.Options> {
                 }
 
                 private boolean makeNonAmend() {
-                    if(manifestRepoVersion.equals(currentRepoVersion)) {
-                        if(repoRepository.isClean()) {
-                            // nothing to do
-                            return false;
-                        }
-
-                        // manifest and satellite matched but dirty, this is "good" and we'll make a new commit
-                        addCommit(new CommitMaker() {
-                            @Override
-                            public VcsVersionDigest commit(String message) {
-                                VcsVersionDigest commit = repoRepository.commitAll(message);
-                                LOGGER.info("[" + repo + "] Committed " + commit.getRawDigest());
-                                return commit;
-                            }
-                        });
-                        messagePrompt.add("[" + repo + "] Dirty, new commit");
+                    if(repoRepository.isClean()) {
+                        // nothing to do
                         return false;
                     }
 
-                    // not a blessed state
-                    LOGGER.error("[" + repo + "] Current state unintelligible!");
-                    return true;
+                    // we'll make a new commit
+                    addCommit(new CommitMaker() {
+                        @Override
+                        public VcsVersionDigest commit(String message) {
+                            VcsVersionDigest commit = repoRepository.commitAll(message);
+                            LOGGER.info("[" + repo + "] Committed " + commit.getRawDigest());
+                            return commit;
+                        }
+                    });
+                    messagePrompt.add("[" + repo + "] Dirty, new commit");
+                    return false;
                 }
 
                 private boolean makeAmend() {
@@ -167,7 +167,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
                     final List<VcsVersionDigest> expectedParents = expectedParentsBuilder.build();
                     LOGGER.debug("[" + repo + "] expectedParents = " + expectedParents);
 
-                    if(manifestRepoVersion.equals(currentRepoVersion) && expectedParents.equals(repoRepository.getCommitData(currentRepoVersion).get(CommitData.PARENTS))) {
+                    if(expectedParents.equals(repoRepository.getCommitData(currentRepoVersion).get(CommitData.PARENTS))) {
                         // satellite HEAD is where it should be and the history makes sense (HEAD in meta only added one commit)
 
                         // well, this is a mess:
@@ -194,7 +194,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
                         return false;
                     }
 
-                    if(manifestRepoVersion.equals(currentRepoVersion) && ImmutableList.of(manifestRepoVersion).equals(expectedParents)) {
+                    if(ImmutableSet.copyOf(expectedParents).equals(ImmutableSet.of(currentRepoVersion))) {
                         // satellite HEAD is where it should be and the history makes other sense (HEAD in meta made no change)
 
                         if(repoRepository.isClean()) {
@@ -216,7 +216,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
                     }
 
                     // not a blessed state
-                    LOGGER.error("[" + repo + "] Current state unintelligible!");
+                    LOGGER.error("[" + repo + "] Current state unintelligible: --amend somewhere ... weird.");
                     return true;
                 }
             }
