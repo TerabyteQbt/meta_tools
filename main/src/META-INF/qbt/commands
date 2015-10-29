@@ -1,4 +1,5 @@
 meta_tools.commit.Commit
+meta_tools.commit.SquashCommits
 meta_tools.devproto.DevProto
 meta_tools.diff.Sdiff
 meta_tools.diff.SdiffDriver
