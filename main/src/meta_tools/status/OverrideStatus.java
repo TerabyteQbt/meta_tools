@@ -66,8 +66,17 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
             VcsVersionDigest repoVersion = repoRepository.getCurrentCommit();
             config.localPinsRepo.requirePin(repo, manifestVersion).findCommit(localRepoAccessor.dir);
 
-            int commitsAhead = repoRepository.revWalk(ImmutableList.of(manifestVersion), ImmutableList.of(repoVersion)).size();
-            int commitsBehind = repoRepository.revWalk(ImmutableList.of(repoVersion), ImmutableList.of(manifestVersion)).size();
+            int commitsAhead;
+            int commitsBehind;
+            if(manifestVersion.equals(repoVersion)) {
+                // common case fast
+                commitsAhead = 0;
+                commitsBehind = 0;
+            }
+            else {
+                commitsAhead = repoRepository.revWalk(ImmutableList.of(manifestVersion), ImmutableList.of(repoVersion)).size();
+                commitsBehind = repoRepository.revWalk(ImmutableList.of(repoVersion), ImmutableList.of(manifestVersion)).size();
+            }
             boolean isDirty = !repoRepository.isClean();
 
             ImmutableList.Builder<String> bannerBuilder = ImmutableList.builder();
