@@ -23,6 +23,7 @@ import misc1.commons.concurrent.ctree.ComputationTree;
 import misc1.commons.options.NamedStringSingletonArgumentOptionsFragment;
 import misc1.commons.options.OptionsFragment;
 import misc1.commons.options.OptionsResults;
+import misc1.commons.resources.FreeScope;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -98,43 +99,45 @@ public final class DevProto extends QbtCommand<DevProto.Options> {
                 private ArtifactReference runDevProto(CvRecursivePackageData<CumulativeVersionComputer.Result> requireRepoResults, List<DevProtoResolvedInput> inputs) {
                     final CumulativeVersion v = requireRepoResults.v;
                     CumulativeVersionComputer.Result requireRepoResult = requireRepoResults.result.getRight();
-                    try(PackageDirectory packageDir = PackageDirectories.forCvcResult(requireRepoResult)) {
-                        LOGGER.info("Running proto for " + v.prettyDigest() + " in " + packageDir.getDir() + "...");
-                        try(QbtTempDir tempDir = new QbtTempDir()) {
-                            Path inputsDir = tempDir.resolve("inputs");
-                            QbtUtils.mkdirs(inputsDir);
-                            Path outputsDir = tempDir.resolve("outputs");
-                            QbtUtils.mkdirs(outputsDir);
+                    try(FreeScope scope = new FreeScope()) {
+                        try(PackageDirectory packageDir = PackageDirectories.forCvcResult(requireRepoResult)) {
+                            LOGGER.info("Running proto for " + v.prettyDigest() + " in " + packageDir.getDir() + "...");
+                            try(QbtTempDir tempDir = new QbtTempDir()) {
+                                Path inputsDir = tempDir.resolve("inputs");
+                                QbtUtils.mkdirs(inputsDir);
+                                Path outputsDir = tempDir.resolve("outputs");
+                                QbtUtils.mkdirs(outputsDir);
 
-                            for(DevProtoResolvedInput input : inputs) {
-                                input.materialize(inputsDir);
-                            }
-
-                            ProcessHelper p = new ProcessHelper(packageDir.getDir(), new String[] {"./.qbt-dev-proto/" + proto + ".exec"});
-                            p = p.combineError();
-                            p = p.putEnv("INPUT_DEV_PROTO_DIR", inputsDir.toAbsolutePath().toString());
-                            p = p.putEnv("OUTPUT_DEV_PROTO_DIR", outputsDir.toAbsolutePath().toString());
-                            p = p.putEnv("PACKAGE_DIR", packageDir.getDir().toAbsolutePath().toString());
-                            p = p.putEnv("PACKAGE_NAME", v.getPackageName());
-                            p = p.putEnv("PACKAGE_CUMULATIVE_VERSION", v.getDigest().getRawDigest().toString());
-                            p = p.stripEnv(new Predicate<Pair<String, String>>() {
-                                @Override
-                                public boolean apply(Pair<String, String> e) {
-                                    return e.getKey().startsWith("QBT_ENV_");
+                                for(DevProtoResolvedInput input : inputs) {
+                                    input.materialize(Maybe.of(scope), inputsDir);
                                 }
-                            });
-                            for(Map.Entry<String, String> e : v.result.qbtEnv.entrySet()) {
-                                p = p.putEnv("QBT_ENV_" + e.getKey(), e.getValue());
-                            }
-                            p.completeLinesCallback(new Function<String, Void>() {
-                                @Override
-                                public Void apply(String line) {
-                                    LOGGER.info("[" + v.prettyDigest() + "] " + line);
-                                    return null;
-                                }
-                            });
 
-                            return artifactScope.copyDirectory(outputsDir);
+                                ProcessHelper p = new ProcessHelper(packageDir.getDir(), new String[] {"./.qbt-dev-proto/" + proto + ".exec"});
+                                p = p.combineError();
+                                p = p.putEnv("INPUT_DEV_PROTO_DIR", inputsDir.toAbsolutePath().toString());
+                                p = p.putEnv("OUTPUT_DEV_PROTO_DIR", outputsDir.toAbsolutePath().toString());
+                                p = p.putEnv("PACKAGE_DIR", packageDir.getDir().toAbsolutePath().toString());
+                                p = p.putEnv("PACKAGE_NAME", v.getPackageName());
+                                p = p.putEnv("PACKAGE_CUMULATIVE_VERSION", v.getDigest().getRawDigest().toString());
+                                p = p.stripEnv(new Predicate<Pair<String, String>>() {
+                                    @Override
+                                    public boolean apply(Pair<String, String> e) {
+                                        return e.getKey().startsWith("QBT_ENV_");
+                                    }
+                                });
+                                for(Map.Entry<String, String> e : v.result.qbtEnv.entrySet()) {
+                                    p = p.putEnv("QBT_ENV_" + e.getKey(), e.getValue());
+                                }
+                                p.completeLinesCallback(new Function<String, Void>() {
+                                    @Override
+                                    public Void apply(String line) {
+                                        LOGGER.info("[" + v.prettyDigest() + "] " + line);
+                                        return null;
+                                    }
+                                });
+
+                                return artifactScope.copyDirectory(outputsDir);
+                            }
                         }
                     }
                 }

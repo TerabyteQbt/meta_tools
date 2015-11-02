@@ -10,7 +10,9 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 import misc1.commons.Either;
+import misc1.commons.Maybe;
 import misc1.commons.concurrent.ctree.ComputationTree;
+import misc1.commons.resources.FreeScope;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import qbt.NormalDependencyType;
@@ -53,8 +55,8 @@ public final class DevProtoInputs {
                 public DevProtoResolvedInput apply(final Map<String, Pair<NormalDependencyType, T>> input) {
                     return new DevProtoResolvedInput() {
                         @Override
-                        public void materialize(Path inputsDir) {
-                            materialize1(inputsDir, input);
+                        public void materialize(Maybe<FreeScope> scope, Path inputsDir) {
+                            materialize1(scope, inputsDir, input);
                         }
                     };
                 }
@@ -62,7 +64,7 @@ public final class DevProtoInputs {
         }
 
         protected abstract ComputationTree<T> mapChild(Stage1Callback cb, CvRecursivePackageData<CumulativeVersionComputer.Result> r);
-        protected abstract void materialize1(Path inputsDir, Map<String, Pair<NormalDependencyType, T>> results);
+        protected abstract void materialize1(Maybe<FreeScope> scope, Path inputsDir, Map<String, Pair<NormalDependencyType, T>> results);
     }
 
     private abstract static class BuildBaseInput extends BaseInput<CvRecursivePackageData<ArtifactReference>> {
@@ -78,29 +80,29 @@ public final class DevProtoInputs {
 
     public static final DevProtoInput STRONG = new BuildBaseInput(NormalDependencyType.STRONG) {
         @Override
-        protected void materialize1(Path inputsDir, Map<String, Pair<NormalDependencyType, CvRecursivePackageData<ArtifactReference>>> results) {
-            BuildUtils.materializeStrongDependencyArtifacts(inputsDir.resolve("strong"), results);
+        protected void materialize1(Maybe<FreeScope> scope, Path inputsDir, Map<String, Pair<NormalDependencyType, CvRecursivePackageData<ArtifactReference>>> results) {
+            BuildUtils.materializeStrongDependencyArtifacts(scope, inputsDir.resolve("strong"), results);
         }
     };
 
     public static final DevProtoInput RUNTIME_WEAK = new BuildBaseInput(NormalDependencyType.RUNTIME_WEAK) {
         @Override
-        protected void materialize1(Path inputsDir, Map<String, Pair<NormalDependencyType, CvRecursivePackageData<ArtifactReference>>> results) {
-            BuildUtils.materializeWeakArtifacts(inputsDir.resolve("weak"), ImmutableSet.of(NormalDependencyType.RUNTIME_WEAK), results);
+        protected void materialize1(Maybe<FreeScope> scope, Path inputsDir, Map<String, Pair<NormalDependencyType, CvRecursivePackageData<ArtifactReference>>> results) {
+            BuildUtils.materializeWeakArtifacts(scope, inputsDir.resolve("weak"), ImmutableSet.of(NormalDependencyType.RUNTIME_WEAK), results);
         }
     };
 
     public static final DevProtoInput BUILDTIME_WEAK = new BuildBaseInput(NormalDependencyType.BUILDTIME_WEAK) {
         @Override
-        protected void materialize1(Path inputsDir, Map<String, Pair<NormalDependencyType, CvRecursivePackageData<ArtifactReference>>> results) {
-            BuildUtils.materializeWeakArtifacts(inputsDir.resolve("weak"), ImmutableSet.of(NormalDependencyType.BUILDTIME_WEAK), results);
+        protected void materialize1(Maybe<FreeScope> scope, Path inputsDir, Map<String, Pair<NormalDependencyType, CvRecursivePackageData<ArtifactReference>>> results) {
+            BuildUtils.materializeWeakArtifacts(scope, inputsDir.resolve("weak"), ImmutableSet.of(NormalDependencyType.BUILDTIME_WEAK), results);
         }
     };
 
     public static final DevProtoInput PHANTOM = new BuildBaseInput(NormalDependencyType.PHANTOM) {
         @Override
-        protected void materialize1(Path inputsDir, Map<String, Pair<NormalDependencyType, CvRecursivePackageData<ArtifactReference>>> results) {
-            BuildUtils.materializeWeakArtifacts(inputsDir.resolve("phantom"), ImmutableSet.of(NormalDependencyType.PHANTOM), results);
+        protected void materialize1(Maybe<FreeScope> scope, Path inputsDir, Map<String, Pair<NormalDependencyType, CvRecursivePackageData<ArtifactReference>>> results) {
+            BuildUtils.materializeWeakArtifacts(scope, inputsDir.resolve("phantom"), ImmutableSet.of(NormalDependencyType.PHANTOM), results);
         }
     };
 
@@ -111,7 +113,7 @@ public final class DevProtoInputs {
         }
 
         @Override
-        protected void materialize1(Path inputsDir, Map<String, Pair<NormalDependencyType, DevProtoResult>> results) {
+        protected void materialize1(final Maybe<FreeScope> scope, Path inputsDir, Map<String, Pair<NormalDependencyType, DevProtoResult>> results) {
             Map<String, DevProtoResult> resultsFlat = collectStrongDeps(results);
             Path protoDir = inputsDir.resolve("proto");
             final Path fixedDir = protoDir.resolve("fixed");
@@ -123,13 +125,13 @@ public final class DevProtoInputs {
                 e.getValue().result.visit(new Either.Visitor<ArtifactReference, ArtifactReference, ObjectUtils.Null>() {
                     @Override
                     public ObjectUtils.Null left(ArtifactReference protoResult) {
-                        BuildUtils.materializeArtifact(overriddenDir.resolve(packageName), protoResult);
+                        BuildUtils.materializeArtifact(scope, overriddenDir.resolve(packageName), protoResult);
                         return ObjectUtils.NULL;
                     }
 
                     @Override
                     public ObjectUtils.Null right(ArtifactReference buildResult) {
-                        BuildUtils.materializeArtifact(fixedDir.resolve(packageName), buildResult);
+                        BuildUtils.materializeArtifact(scope, fixedDir.resolve(packageName), buildResult);
                         return ObjectUtils.NULL;
                     }
                 });
@@ -151,8 +153,8 @@ public final class DevProtoInputs {
                     public DevProtoResolvedInput apply(final CvRecursivePackageData<ArtifactReference> input) {
                         return new DevProtoResolvedInput() {
                             @Override
-                            public void materialize(Path inputsDir) {
-                                BuildUtils.materializeRuntimeArtifacts(inputsDir.resolve("extra").resolve(pkg.name), input);
+                            public void materialize(Maybe<FreeScope> scope, Path inputsDir) {
+                                BuildUtils.materializeRuntimeArtifacts(scope, inputsDir.resolve("extra").resolve(pkg.name), input);
                             }
                         };
                     }
