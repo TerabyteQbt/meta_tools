@@ -39,7 +39,7 @@ import qbt.QbtManifest;
 import qbt.QbtTempDir;
 import qbt.QbtUtils;
 import qbt.artifactcacher.ArtifactReference;
-import qbt.artifactcacher.ArtifactScope;
+import qbt.artifactcacher.ArtifactReferences;
 import qbt.build.BuildData;
 import qbt.build.PackageMapperHelper;
 import qbt.build.PackageMapperHelperOptionsDelegate;
@@ -94,7 +94,7 @@ public final class DevProto extends QbtCommand<DevProto.Options> {
         final Collection<PackageTip> packages = Options.packages.getPackages(config, manifest, options);
         final CumulativeVersionComputerOptionsResult cumulativeVersionComputerOptionsResult = Options.cumulativeVersionComputerOptions.getResults(options);
         final String proto = options.get(Options.proto);
-        try(final ArtifactScope artifactScope = new ArtifactScope()) {
+        try(final FreeScope scope = new FreeScope()) {
             PackageMapperHelper.run(config.artifactCacher, options, Options.packageMapperHelperOptions, new PackageMapperHelper.PackageMapperHelperCallback<ObjectUtils.Null>() {
                 private ArtifactReference runDevProto(CvRecursivePackageData<CumulativeVersionComputer.Result> requireRepoResults, List<DevProtoResolvedInput> inputs) {
                     final CumulativeVersion v = requireRepoResults.v;
@@ -136,7 +136,7 @@ public final class DevProto extends QbtCommand<DevProto.Options> {
                                     }
                                 });
 
-                                return artifactScope.copyDirectory(outputsDir);
+                                return ArtifactReferences.copyDirectory(scope, outputsDir);
                             }
                         }
                     }
