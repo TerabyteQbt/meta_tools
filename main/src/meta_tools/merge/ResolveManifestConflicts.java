@@ -106,12 +106,12 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
         for(QbtManifest manifest : manifests) {
             DependencyComputer<?, LazyCollector<PackageTip>> dc = new SimpleDependencyComputer<LazyCollector<PackageTip>>(manifest) {
                 @Override
-                protected LazyCollector<PackageTip> map(PackageManifest intermediate, PackageTip packageTip, Map<String, Pair<NormalDependencyType, LazyCollector<PackageTip>>> dependencyResults) {
+                protected LazyCollector<PackageTip> map(PackageManifest intermediate, MapData<LazyCollector<PackageTip>> data) {
                     LazyCollector<PackageTip> ret = LazyCollector.of();
-                    for(Pair<NormalDependencyType, LazyCollector<PackageTip>> e : dependencyResults.values()) {
+                    for(Pair<NormalDependencyType, LazyCollector<PackageTip>> e : data.dependencyResults.values()) {
                         ret = ret.union(e.getRight());
                     }
-                    ret = ret.union(LazyCollector.of(packageTip));
+                    ret = ret.union(LazyCollector.of(data.packageTip));
                     return ret;
                 }
             };
