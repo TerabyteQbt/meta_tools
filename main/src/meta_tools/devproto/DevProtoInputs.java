@@ -99,13 +99,6 @@ public final class DevProtoInputs {
         }
     };
 
-    public static final DevProtoInput PHANTOM = new BuildBaseInput(NormalDependencyType.PHANTOM) {
-        @Override
-        protected void materialize1(Maybe<FreeScope> scope, Path inputsDir, Map<String, Pair<NormalDependencyType, CvRecursivePackageData<ArtifactReference>>> results) {
-            BuildUtils.materializeWeakArtifacts(scope, inputsDir.resolve("phantom"), ImmutableSet.of(NormalDependencyType.PHANTOM), results);
-        }
-    };
-
     public static final DevProtoInput PROTO = new BaseInput<DevProtoResult>(NormalDependencyType.STRONG) {
         @Override
         protected ComputationTree<DevProtoResult> mapChild(Stage1Callback cb, CvRecursivePackageData<CumulativeVersionComputer.Result> r) {
