@@ -47,7 +47,6 @@ import qbt.config.QbtConfig;
 import qbt.map.CumulativeVersionComputer;
 import qbt.map.CumulativeVersionComputerOptionsDelegate;
 import qbt.map.CumulativeVersionComputerOptionsResult;
-import qbt.map.ManifestCumulativeVersionComputer;
 import qbt.options.ConfigOptionsDelegate;
 import qbt.options.ManifestOptionsDelegate;
 import qbt.options.PackageActionOptionsDelegate;
@@ -176,7 +175,7 @@ public final class DevProto extends QbtCommand<DevProto.Options> {
                             }
                         }
                     });
-                    final CumulativeVersionComputer<?> cumulativeVersionComputer = new ManifestCumulativeVersionComputer<Pair<CumulativeVersionNodeData, PackageTip>>(config, manifest) {
+                    final CumulativeVersionComputer<?> cumulativeVersionComputer = new CumulativeVersionComputer<Pair<CumulativeVersionNodeData, PackageTip>>(config, manifest) {
                         @Override
                         protected Pair<CumulativeVersionNodeData, PackageTip> canonicalizationKey(CumulativeVersionComputer.Result result) {
                             return Pair.of(result.cumulativeVersionNodeData, result.packageTip);

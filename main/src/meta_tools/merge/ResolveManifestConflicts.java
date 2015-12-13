@@ -16,8 +16,6 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qbt.HelpTier;
-import qbt.NormalDependencyType;
-import qbt.PackageManifest;
 import qbt.QbtCommand;
 import qbt.QbtCommandName;
 import qbt.QbtCommandOptions;
@@ -28,7 +26,7 @@ import qbt.VcsVersionDigest;
 import qbt.config.QbtConfig;
 import qbt.mains.MergeManifests;
 import qbt.map.DependencyComputer;
-import qbt.map.SimpleDependencyComputer;
+import qbt.map.PackageTipDependenciesMapper;
 import qbt.repo.LocalRepoAccessor;
 import qbt.repo.PinnedRepoAccessor;
 import qbt.tip.PackageTip;
@@ -104,23 +102,14 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
     private static ImmutableMultimap<RepoTip, RepoTip> computeRepoDeps(Iterable<QbtManifest> manifests) {
         ImmutableMultimap.Builder<RepoTip, RepoTip> b = ImmutableMultimap.builder();
         for(QbtManifest manifest : manifests) {
-            DependencyComputer<?, LazyCollector<PackageTip>> dc = new SimpleDependencyComputer<LazyCollector<PackageTip>>(manifest) {
-                @Override
-                protected LazyCollector<PackageTip> map(PackageManifest intermediate, MapData<LazyCollector<PackageTip>> data) {
-                    LazyCollector<PackageTip> ret = LazyCollector.of();
-                    for(Pair<NormalDependencyType, LazyCollector<PackageTip>> e : data.dependencyResults.values()) {
-                        ret = ret.union(e.getRight());
-                    }
-                    ret = ret.union(LazyCollector.of(data.packageTip));
-                    return ret;
-                }
-            };
+            DependencyComputer dc = new DependencyComputer(manifest);
+            PackageTipDependenciesMapper dependenciesMapper = new PackageTipDependenciesMapper();
             for(Map.Entry<RepoTip, RepoManifest> e : manifest.repos.entrySet()) {
                 RepoTip repo = e.getKey();
                 LazyCollector<PackageTip> depPkgs = LazyCollector.of();
                 for(String packageName : e.getValue().packages.keySet()) {
                     PackageTip pkg = repo.toPackage(packageName);
-                    depPkgs = depPkgs.union(dc.compute(pkg));
+                    depPkgs = depPkgs.union(dependenciesMapper.transform(dc.compute(pkg)));
                 }
                 for(PackageTip depPkg : depPkgs.forceSet()) {
                     RepoTip depRepo = manifest.packageToRepo.get(depPkg);
