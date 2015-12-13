@@ -117,16 +117,18 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
             };
             for(Map.Entry<RepoTip, RepoManifest> e : manifest.repos.entrySet()) {
                 RepoTip repo = e.getKey();
+                LazyCollector<PackageTip> depPkgs = LazyCollector.of();
                 for(String packageName : e.getValue().packages.keySet()) {
                     PackageTip pkg = repo.toPackage(packageName);
-                    for(PackageTip depPkg : dc.compute(pkg).forceSet()) {
-                        RepoTip depRepo = manifest.packageToRepo.get(depPkg);
-                        if(repo.equals(depRepo)) {
-                            // you're cool
-                            continue;
-                        }
-                        b.put(repo, depRepo);
+                    depPkgs = depPkgs.union(dc.compute(pkg));
+                }
+                for(PackageTip depPkg : depPkgs.forceSet()) {
+                    RepoTip depRepo = manifest.packageToRepo.get(depPkg);
+                    if(repo.equals(depRepo)) {
+                        // you're cool
+                        continue;
                     }
+                    b.put(repo, depRepo);
                 }
             }
         }
