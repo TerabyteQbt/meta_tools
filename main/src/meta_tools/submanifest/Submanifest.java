@@ -257,7 +257,7 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
                     }
                 }
                 cd = cd.set(CommitData.TREE, selfTree);
-                cd = cd.set(CommitData.PARENTS, keptParents);
+                cd = cd.set(CommitData.PARENTS, ImmutableList.copyOf(keptParents));
                 return metaRepository.createCommit(cd);
             }
         }.build("split", Options.splits);

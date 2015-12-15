@@ -177,7 +177,7 @@ public final class SquashCommits extends QbtCommand<SquashCommits.Options> {
 
                 CommitData newCd = revWalk.get(tip);
                 newCd = newCd.set(CommitData.MESSAGE, metaCurrentCd.get(CommitData.MESSAGE));
-                newCd = newCd.set(CommitData.PARENTS, bases);
+                newCd = newCd.set(CommitData.PARENTS, ImmutableList.copyOf(bases));
                 VcsVersionDigest newTip = repoRepository.createCommit(newCd);
 
                 if(newTip.equals(tip)) {
