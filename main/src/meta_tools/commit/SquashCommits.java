@@ -65,10 +65,6 @@ public final class SquashCommits extends QbtCommand<SquashCommits.Options> {
         return "squash satellite histories";
     }
 
-    private interface CommitMaker {
-        VcsVersionDigest commit(String message);
-    }
-
     @Override
     public int run(OptionsResults<? extends Options> options) throws Exception {
         QbtConfig config = Options.config.getConfig(options);
