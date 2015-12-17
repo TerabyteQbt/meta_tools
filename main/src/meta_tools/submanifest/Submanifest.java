@@ -10,6 +10,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Ordering;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -183,7 +184,7 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
             private VcsTreeDigest liftTree(VcsTreeDigest tree) {
                 QbtManifest manifest = QbtManifest.parse(tree.getRawDigest() + ":qbt-manifest", metaRepository.showFile(tree, "qbt-manifest"));
                 TreeAccessor treeAccessor = metaRepository.getTreeAccessor(tree);
-                byte[] importedBytes = linesToBytes(Iterables.transform(manifest.repos.keySet(), Functions.toStringFunction()));
+                byte[] importedBytes = linesToBytes(Ordering.natural().immutableSortedCopy(Iterables.transform(manifest.repos.keySet(), Functions.toStringFunction())));
                 treeAccessor = treeAccessor.replace(importedFile, importedBytes);
                 return treeAccessor.getDigest();
             }
