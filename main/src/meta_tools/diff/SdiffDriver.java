@@ -12,9 +12,9 @@ import qbt.HelpTier;
 import qbt.QbtCommand;
 import qbt.QbtCommandName;
 import qbt.QbtCommandOptions;
-import qbt.QbtManifest;
 import qbt.QbtUtils;
 import qbt.config.QbtConfig;
+import qbt.manifest.QbtManifest;
 import qbt.options.ConfigOptionsDelegate;
 
 public class SdiffDriver extends QbtCommand<SdiffDriver.Options> {
