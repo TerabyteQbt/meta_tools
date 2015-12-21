@@ -82,9 +82,9 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                 RepoTip repo = update.getLeft();
                 VcsVersionDigest version = update.getRight();
                 LOGGER.info("Resolved " + repo + " to " + version.getRawDigest());
-                lhsBuilder = lhsBuilder.with(repo, lhs.repos.get(repo).builder().withVersion(version));
-                mhsBuilder = mhsBuilder.with(repo, mhs.repos.get(repo).builder().withVersion(version));
-                rhsBuilder = rhsBuilder.with(repo, rhs.repos.get(repo).builder().withVersion(version));
+                lhsBuilder = lhsBuilder.with(repo, lhs.repos.get(repo).builder().set(RepoManifest.VERSION, version));
+                mhsBuilder = mhsBuilder.with(repo, mhs.repos.get(repo).builder().set(RepoManifest.VERSION, version));
+                rhsBuilder = rhsBuilder.with(repo, rhs.repos.get(repo).builder().set(RepoManifest.VERSION, version));
             }
             lhs = lhsBuilder.build();
             mhs = mhsBuilder.build();

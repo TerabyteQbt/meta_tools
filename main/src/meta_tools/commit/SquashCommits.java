@@ -182,7 +182,7 @@ public final class SquashCommits extends QbtCommand<SquashCommits.Options> {
 
                 changed = true;
                 pinnedAccessor.addPin(repoDir, newTip);
-                newManifest = newManifest.with(repo, repoManifest.builder().withVersion(newTip));
+                newManifest = newManifest.with(repo, repoManifest.builder().set(RepoManifest.VERSION, newTip));
                 LOGGER.info("[" + repo + "] Rebuilt " + revWalk.size() + " commit(s) behind " + tip.getRawDigest() + " -> " + newTip.getRawDigest());
             }
         }
