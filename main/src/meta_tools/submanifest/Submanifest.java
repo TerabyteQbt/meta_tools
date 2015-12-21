@@ -212,10 +212,10 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
                 QbtManifest manifest = QbtManifest.parse(tree.getRawDigest() + ":qbt-manifest", metaRepository.showFile(tree, "qbt-manifest"));
                 TreeAccessor treeAccessor = metaRepository.getTreeAccessor(tree);
                 byte[] importedBytes = treeAccessor.get(importedFile).rightOrNull();
-                QbtManifest.Builder newManifestBuilder = QbtManifest.emptyBuilder();
+                QbtManifest.Builder newManifestBuilder = QbtManifest.TYPE.builder();
                 for(String repoString : new String(importedBytes, Charsets.UTF_8).split("\n")) {
                     RepoTip repo = RepoTip.TYPE.parseRequire(repoString);
-                    newManifestBuilder = newManifestBuilder.with(repo, manifest.repos.get(repo));
+                    newManifestBuilder = newManifestBuilder.with(repo, manifest.repos.get(repo).builder());
                 }
                 treeAccessor = treeAccessor.remove(importedFile);
                 treeAccessor = treeAccessor.replace("qbt-manifest", linesToBytes(newManifestBuilder.build().deparse()));

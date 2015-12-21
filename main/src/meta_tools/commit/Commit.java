@@ -291,7 +291,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
         for(Map.Entry<RepoTip, CommitMaker> e : commitsBuilder.build().entrySet()) {
             RepoTip repo = e.getKey();
             VcsVersionDigest repoVersion = e.getValue().commit(message);
-            newManifest = newManifest.with(repo, manifest.repos.get(repo).builder().withVersion(repoVersion).build());
+            newManifest = newManifest.with(repo, manifest.repos.get(repo).builder().withVersion(repoVersion));
         }
         manifestResult.deparse(newManifest.build());
         VcsVersionDigest commit = metaRepository.commit(amend, message, CommitLevel.MODIFIED);
