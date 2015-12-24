@@ -11,6 +11,7 @@ import misc1.commons.ds.LazyCollector;
 import misc1.commons.options.NamedEnumSingletonArgumentOptionsFragment;
 import misc1.commons.options.OptionsFragment;
 import misc1.commons.options.OptionsResults;
+import misc1.commons.ph.ProcessHelper;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 import org.slf4j.Logger;
@@ -31,7 +32,7 @@ import qbt.repo.LocalRepoAccessor;
 import qbt.repo.PinnedRepoAccessor;
 import qbt.tip.PackageTip;
 import qbt.tip.RepoTip;
-import qbt.utils.ProcessHelper;
+import qbt.utils.ProcessHelperUtils;
 import qbt.vcs.Repository;
 
 public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflicts.Options> {
@@ -262,7 +263,8 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                                 overrideRepo.checkout(lhsVersion);
                             }
 
-                            ProcessHelper p = new ProcessHelper(overrideRepo.getRoot(), System.getenv("SHELL"), "-i");
+                            ProcessHelper p = ProcessHelper.of(overrideRepo.getRoot(), System.getenv("SHELL"), "-i");
+                            p = ProcessHelperUtils.stripGitEnv(p);
                             p = p.putEnv("LHS", lhsVersion.getRawDigest().toString());
                             p = p.putEnv("MHS", mhsVersion.getRawDigest().toString());
                             p = p.putEnv("RHS", rhsVersion.getRawDigest().toString());
@@ -275,7 +277,7 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                             p = p.inheritInput();
                             p = p.inheritOutput();
                             p = p.inheritError();
-                            int exitCode = p.completeExitCode();
+                            int exitCode = p.run().exitCode;
                             if(exitCode == 0) {
                                 VcsVersionDigest result = overrideRepo.getCurrentCommit();
                                 lhsResult.addPin(overrideRepo.getRoot(), result);

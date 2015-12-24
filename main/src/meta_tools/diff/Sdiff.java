@@ -16,6 +16,7 @@ import misc1.commons.options.OptionsException;
 import misc1.commons.options.OptionsFragment;
 import misc1.commons.options.OptionsResults;
 import misc1.commons.options.UnparsedOptionsFragment;
+import misc1.commons.ph.ProcessHelper;
 import qbt.HelpTier;
 import qbt.QbtCommand;
 import qbt.QbtCommandName;
@@ -31,7 +32,7 @@ import qbt.options.ConfigOptionsDelegate;
 import qbt.repo.LocalRepoAccessor;
 import qbt.repo.PinnedRepoAccessor;
 import qbt.tip.RepoTip;
-import qbt.utils.ProcessHelper;
+import qbt.utils.ProcessHelperUtils;
 import qbt.vcs.LocalVcs;
 import qbt.vcs.Repository;
 import qbt.vcs.git.GitLocalVcs;
@@ -245,27 +246,21 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
                 commandBuilder.add(command);
                 commandBuilder.add("-");
                 commandBuilder.addAll(options.get(commonsOptions.extraArgs));
-                ProcessHelper p = new ProcessHelper(dir, commandBuilder.build().toArray(new String[0]));
+                ProcessHelper p = ProcessHelper.of(dir, commandBuilder.build().toArray(new String[0]));
+                p = ProcessHelperUtils.stripGitEnv(p);
                 for(Map.Entry<String, VcsVersionDigest> e : versions.entrySet()) {
                     p = p.putEnv(e.getKey(), e.getValue().getRawDigest().toString());
                 }
                 p = p.putEnv("REPO_NAME", repo.name);
                 p = p.putEnv("REPO_TIP", repo.tip);
                 if("true".equals(vcsConfig.get(configPrefix + "prefix"))) {
-                    p = p.combineError();
-                    p.completeLinesCallback(new Function<String, Void>() {
-                        @Override
-                        public Void apply(String line) {
-                            System.out.println("[" + repo + "] " + line);
-                            return null;
-                        }
-                    });
+                    p.run(ProcessHelperUtils.simplePrefixCallback(String.valueOf(repo)));
                 }
                 else {
                     p = p.inheritInput();
                     p = p.inheritOutput();
                     p = p.inheritError();
-                    p.completeVoid();
+                    p.run().requireSuccess();
                 }
             }
         }.diff();

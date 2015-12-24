@@ -17,6 +17,7 @@ import misc1.commons.options.NamedBooleanFlagOptionsFragment;
 import misc1.commons.options.NamedStringSingletonArgumentOptionsFragment;
 import misc1.commons.options.OptionsFragment;
 import misc1.commons.options.OptionsResults;
+import misc1.commons.ph.ProcessHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qbt.HelpTier;
@@ -36,7 +37,6 @@ import qbt.options.RepoActionOptionsDelegate;
 import qbt.repo.LocalRepoAccessor;
 import qbt.repo.PinnedRepoAccessor;
 import qbt.tip.RepoTip;
-import qbt.utils.ProcessHelper;
 import qbt.vcs.CommitData;
 import qbt.vcs.CommitLevel;
 import qbt.vcs.Repository;
@@ -265,7 +265,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
                         // suck it, emacs!
                         editor = "vim";
                     }
-                    new ProcessHelper(Paths.get("/"), editor, promptFile.toString()).inheritInput().inheritOutput().inheritError().completeVoid();
+                    ProcessHelper.of(Paths.get("/"), editor, promptFile.toString()).inheritInput().inheritOutput().inheritError().run().requireSuccess();
                     LinkedList<String> messageLines = Lists.newLinkedList(QbtUtils.readLines(promptFile));
                     for(Iterator<String> i = messageLines.iterator(); i.hasNext(); ) {
                         String line = i.next();

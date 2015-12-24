@@ -1,7 +1,6 @@
 package meta_tools.devproto;
 
 import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -23,6 +22,7 @@ import misc1.commons.concurrent.ctree.ComputationTree;
 import misc1.commons.options.NamedStringSingletonArgumentOptionsFragment;
 import misc1.commons.options.OptionsFragment;
 import misc1.commons.options.OptionsResults;
+import misc1.commons.ph.ProcessHelper;
 import misc1.commons.resources.FreeScope;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -56,7 +56,7 @@ import qbt.recursive.cvrpd.CvRecursivePackageData;
 import qbt.recursive.cvrpd.CvRecursivePackageDataComputationMapper;
 import qbt.recursive.cvrpd.CvRecursivePackageDataMapper;
 import qbt.tip.PackageTip;
-import qbt.utils.ProcessHelper;
+import qbt.utils.ProcessHelperUtils;
 
 public final class DevProto extends QbtCommand<DevProto.Options> {
     private static final Logger LOGGER = LoggerFactory.getLogger(DevProto.class);
@@ -111,29 +111,21 @@ public final class DevProto extends QbtCommand<DevProto.Options> {
                                     input.materialize(Maybe.of(scopeRunDevProto), inputsDir);
                                 }
 
-                                ProcessHelper p = new ProcessHelper(packageDir.getDir(), new String[] {"./.qbt-dev-proto/" + proto + ".exec"});
-                                p = p.combineError();
+                                ProcessHelper p = ProcessHelper.of(packageDir.getDir(), new String[] {"./.qbt-dev-proto/" + proto + ".exec"});
                                 p = p.putEnv("INPUT_DEV_PROTO_DIR", inputsDir.toAbsolutePath().toString());
                                 p = p.putEnv("OUTPUT_DEV_PROTO_DIR", outputsDir.toAbsolutePath().toString());
                                 p = p.putEnv("PACKAGE_DIR", packageDir.getDir().toAbsolutePath().toString());
                                 p = p.putEnv("PACKAGE_NAME", v.getPackageName());
                                 p = p.putEnv("PACKAGE_CUMULATIVE_VERSION", v.getDigest().getRawDigest().toString());
-                                p = p.stripEnv(new Predicate<Pair<String, String>>() {
-                                    @Override
-                                    public boolean apply(Pair<String, String> e) {
-                                        return e.getKey().startsWith("QBT_ENV_");
+                                for(String key : p.get(ProcessHelper.ENV).keys()) {
+                                    if(key.startsWith("QBT_ENV_")) {
+                                        p = p.removeEnv(key);
                                     }
-                                });
+                                }
                                 for(Map.Entry<String, String> e : v.result.qbtEnv.entrySet()) {
                                     p = p.putEnv("QBT_ENV_" + e.getKey(), e.getValue());
                                 }
-                                p.completeLinesCallback(new Function<String, Void>() {
-                                    @Override
-                                    public Void apply(String line) {
-                                        LOGGER.info("[" + v.prettyDigest() + "] " + line);
-                                        return null;
-                                    }
-                                });
+                                p.run(ProcessHelperUtils.simplePrefixCallback(v.prettyDigest()));
 
                                 return ArtifactReferences.copyDirectory(scopeGlobal, outputsDir);
                             }
