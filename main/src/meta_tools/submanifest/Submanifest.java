@@ -262,21 +262,17 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
             }
         }.build("split", Options.splits);
 
-        final WorkPool workPool = Options.parallelism.getResult(options, false).createWorkPool();
-        try {
+        try(WorkPool workPool = Options.parallelism.getResult(options, false).createWorkPool()) {
             ComputationTreeComputer ctc = new ComputationTreeComputer() {
                 @Override
                 protected void submit(Runnable r) {
-                    workPool.submit(r);
+                    workPool.execute(r);
                 }
             };
 
             ctc.await(ComputationTree.pair(liftTree, splitTree)).getCommute();
 
             return 0;
-        }
-        finally {
-            workPool.shutdown();
         }
     }
 
