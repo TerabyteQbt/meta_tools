@@ -15,9 +15,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import misc1.commons.Maybe;
-import misc1.commons.concurrent.WorkPool;
 import misc1.commons.concurrent.ctree.ComputationTree;
-import misc1.commons.concurrent.ctree.ComputationTreeComputer;
 import misc1.commons.options.NamedStringListArgumentOptionsFragment;
 import misc1.commons.options.NamedStringSingletonArgumentOptionsFragment;
 import misc1.commons.options.OptionsFragment;
@@ -262,13 +260,8 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
             }
         }.build("split", Options.splits);
 
-        try(WorkPool workPool = Options.parallelism.getResult(options, false).createWorkPool()) {
-            ComputationTreeComputer ctc = new ComputationTreeComputer(workPool);
-
-            ctc.await(ComputationTree.pair(liftTree, splitTree)).getCommute();
-
-            return 0;
-        }
+        Options.parallelism.getResult(options, false).runComputationTree(ComputationTree.pair(liftTree, splitTree));
+        return 0;
     }
 
     private static byte[] linesToBytes(Iterable<String> lines) {
