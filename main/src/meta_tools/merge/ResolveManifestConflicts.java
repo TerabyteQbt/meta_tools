@@ -63,7 +63,7 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
         final QbtConfig config = QbtConfig.parse(QbtUtils.findInMeta("qbt-config", null));
         MergeManifests.Strategy strategy = options.get(Options.strategy);
         Path manifestPath = QbtUtils.findInMeta("qbt-manifest", null);
-        Triple<Iterable<String>, Iterable<String>, Iterable<String>> inLines = QbtUtils.parseConflictLines(QbtUtils.readLines(manifestPath));
+        Triple<ImmutableList<String>, ImmutableList<String>, ImmutableList<String>> inLines = QbtUtils.parseConflictLines(QbtUtils.readLines(manifestPath));
         QbtManifest lhs = QbtManifest.parse(manifestPath + "@{LHS}", inLines.getLeft());
         QbtManifest mhs = QbtManifest.parse(manifestPath + "@{MHS}", inLines.getMiddle());
         QbtManifest rhs = QbtManifest.parse(manifestPath + "@{RHS}", inLines.getRight());
