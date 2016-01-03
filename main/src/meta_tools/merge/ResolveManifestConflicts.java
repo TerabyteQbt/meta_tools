@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 import misc1.commons.Maybe;
 import misc1.commons.ds.LazyCollector;
+import misc1.commons.options.NamedBooleanFlagOptionsFragment;
 import misc1.commons.options.NamedEnumSingletonArgumentOptionsFragment;
 import misc1.commons.options.OptionsFragment;
 import misc1.commons.options.OptionsResults;
@@ -41,6 +42,7 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
     @QbtCommandName("resolveManifestConflicts")
     public static interface Options extends QbtCommandOptions {
         public static final OptionsFragment<Options, ?, MergeManifests.StrategyEnum> strategy = new NamedEnumSingletonArgumentOptionsFragment<Options, MergeManifests.StrategyEnum>(MergeManifests.StrategyEnum.class, ImmutableList.of("--strategy"), Maybe.<MergeManifests.StrategyEnum>of(null), "\"Strategy\" for [attempting resolution in] satellites");
+        public static final OptionsFragment<Options, ?, Boolean> noDeps = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("--noDeps"), "Don't insist on resolving in dep order");
     }
 
     @Override
@@ -68,7 +70,13 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
         QbtManifest mhs = QbtManifest.parse(manifestPath + "@{MHS}", inLines.getMiddle());
         QbtManifest rhs = QbtManifest.parse(manifestPath + "@{RHS}", inLines.getRight());
 
-        StepsBuilder b = new StepsBuilder(config, strategy, lhs, mhs, rhs);
+        ImmutableMultimap.Builder<RepoTip, RepoTip> repoDeps = ImmutableMultimap.builder();
+        if(!options.get(Options.noDeps)) {
+            addDeps(repoDeps, lhs);
+            addDeps(repoDeps, mhs);
+            addDeps(repoDeps, rhs);
+        }
+        StepsBuilder b = new StepsBuilder(config, strategy, repoDeps.build(), lhs, mhs, rhs);
         b.addSteps(lhs.repos.keySet(), false);
         b.addSteps(mhs.repos.keySet(), false);
         b.addSteps(rhs.repos.keySet(), false);
@@ -100,29 +108,25 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
         return 0;
     }
 
-    private static ImmutableMultimap<RepoTip, RepoTip> computeRepoDeps(Iterable<QbtManifest> manifests) {
-        ImmutableMultimap.Builder<RepoTip, RepoTip> b = ImmutableMultimap.builder();
-        for(QbtManifest manifest : manifests) {
-            DependencyComputer dc = new DependencyComputer(manifest);
-            PackageTipDependenciesMapper dependenciesMapper = new PackageTipDependenciesMapper();
-            for(Map.Entry<RepoTip, RepoManifest> e : manifest.repos.entrySet()) {
-                RepoTip repo = e.getKey();
-                ImmutableList.Builder<LazyCollector<PackageTip>> depPkgs = ImmutableList.builder();
-                for(String packageName : e.getValue().packages.keySet()) {
-                    PackageTip pkg = repo.toPackage(packageName);
-                    depPkgs.add(dependenciesMapper.transform(dc.compute(pkg)));
+    private static void addDeps(ImmutableMultimap.Builder<RepoTip, RepoTip> b, QbtManifest manifest) {
+        DependencyComputer dc = new DependencyComputer(manifest);
+        PackageTipDependenciesMapper dependenciesMapper = new PackageTipDependenciesMapper();
+        for(Map.Entry<RepoTip, RepoManifest> e : manifest.repos.entrySet()) {
+            RepoTip repo = e.getKey();
+            ImmutableList.Builder<LazyCollector<PackageTip>> depPkgs = ImmutableList.builder();
+            for(String packageName : e.getValue().packages.keySet()) {
+                PackageTip pkg = repo.toPackage(packageName);
+                depPkgs.add(dependenciesMapper.transform(dc.compute(pkg)));
+            }
+            for(PackageTip depPkg : LazyCollector.unionIterable(depPkgs.build()).forceSet()) {
+                RepoTip depRepo = manifest.packageToRepo.get(depPkg);
+                if(repo.equals(depRepo)) {
+                    // you're cool
+                    continue;
                 }
-                for(PackageTip depPkg : LazyCollector.unionIterable(depPkgs.build()).forceSet()) {
-                    RepoTip depRepo = manifest.packageToRepo.get(depPkg);
-                    if(repo.equals(depRepo)) {
-                        // you're cool
-                        continue;
-                    }
-                    b.put(repo, depRepo);
-                }
+                b.put(repo, depRepo);
             }
         }
-        return b.build();
     }
 
     private static final class StepResult {
@@ -142,22 +146,22 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
     private final static class StepsBuilder {
         private final QbtConfig config;
         private final MergeManifests.Strategy strategy;
+        private final ImmutableMultimap<RepoTip, RepoTip> repoDeps;
         private final QbtManifest lhs;
         private final QbtManifest mhs;
         private final QbtManifest rhs;
-        private final ImmutableMultimap<RepoTip, RepoTip> repoDeps;
 
         private final ImmutableList.Builder<Step> stepsBuilder = ImmutableList.builder();
         private final Set<RepoTip> started = Sets.newHashSet();
         private final Set<RepoTip> finished = Sets.newHashSet();
 
-        public StepsBuilder(QbtConfig config, MergeManifests.Strategy strategy, QbtManifest lhs, QbtManifest mhs, QbtManifest rhs) {
+        public StepsBuilder(QbtConfig config, MergeManifests.Strategy strategy, ImmutableMultimap<RepoTip, RepoTip> repoDeps, QbtManifest lhs, QbtManifest mhs, QbtManifest rhs) {
             this.config = config;
             this.strategy = strategy;
+            this.repoDeps = repoDeps;
             this.lhs = lhs;
             this.mhs = mhs;
             this.rhs = rhs;
-            this.repoDeps = computeRepoDeps(ImmutableList.of(lhs, mhs, rhs));
         }
 
         private void addSteps(Iterable<RepoTip> repos, boolean require) {
