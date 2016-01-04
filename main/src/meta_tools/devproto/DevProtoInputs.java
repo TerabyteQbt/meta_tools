@@ -132,17 +132,14 @@ public final class DevProtoInputs {
     }
 
     public static DevProtoInput extra(final PackageTip pkg) {
-        return new DevProtoInput() {
-            @Override
-            public ComputationTree<DevProtoResolvedInput> computationTree(CvRecursivePackageData<CumulativeVersionComputer.Result> r, Stage1Callback cb) {
-                CvRecursivePackageData<CumulativeVersionComputer.Result> rExtra = cb.computeCumulativeVersion(pkg);
-                return cb.buildComputationTree(rExtra).transform(new Function<CvRecursivePackageData<ArtifactReference>, DevProtoResolvedInput>() {
-                    @Override
-                    public DevProtoResolvedInput apply(final CvRecursivePackageData<ArtifactReference> input) {
-                        return (scope, inputsDir) -> BuildUtils.materializeRuntimeArtifacts(scope, inputsDir.resolve("extra").resolve(pkg.name), input);
-                    }
-                });
-            }
+        return (r, cb) -> {
+            CvRecursivePackageData<CumulativeVersionComputer.Result> rExtra = cb.computeCumulativeVersion(pkg);
+            return cb.buildComputationTree(rExtra).transform(new Function<CvRecursivePackageData<ArtifactReference>, DevProtoResolvedInput>() {
+                @Override
+                public DevProtoResolvedInput apply(final CvRecursivePackageData<ArtifactReference> input) {
+                    return (scope, inputsDir) -> BuildUtils.materializeRuntimeArtifacts(scope, inputsDir.resolve("extra").resolve(pkg.name), input);
+                }
+            });
         };
     }
 
