@@ -226,14 +226,11 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                 // if something outwards from us is conflicted it will get our deps transitively
                 if(overrideRepo != null) {
                     // already resolved, overridden, we'll update
-                    stepsBuilder.add(new Step() {
-                        @Override
-                        public StepResult run() {
-                            PinnedRepoAccessor lhsResult = config.localPinsRepo.requirePin(repo, lhsVersion);
-                            lhsResult.findCommit(overrideRepo.getRoot());
-                            overrideRepo.checkout(lhsVersion);
-                            return new StepResult(ImmutableList.<Pair<RepoTip, VcsVersionDigest>>of(), false);
-                        }
+                    stepsBuilder.add(() -> {
+                        PinnedRepoAccessor lhsResult = config.localPinsRepo.requirePin(repo, lhsVersion);
+                        lhsResult.findCommit(overrideRepo.getRoot());
+                        overrideRepo.checkout(lhsVersion);
+                        return new StepResult(ImmutableList.<Pair<RepoTip, VcsVersionDigest>>of(), false);
                     });
                 }
                 else {
@@ -246,59 +243,56 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                 addSteps(repoDeps.get(repo), true);
                 if(overrideRepo != null) {
                     // conflicted, override, we'll resolve interactively
-                    stepsBuilder.add(new Step() {
-                        @Override
-                        public StepResult run() {
-                            PinnedRepoAccessor lhsResult = config.localPinsRepo.requirePin(repo, lhsVersion);
-                            lhsResult.findCommit(overrideRepo.getRoot());
-                            PinnedRepoAccessor mhsResult = config.localPinsRepo.requirePin(repo, mhsVersion);
-                            mhsResult.findCommit(overrideRepo.getRoot());
-                            PinnedRepoAccessor rhsResult = config.localPinsRepo.requirePin(repo, rhsVersion);
-                            rhsResult.findCommit(overrideRepo.getRoot());
+                    stepsBuilder.add(() -> {
+                        PinnedRepoAccessor lhsResult = config.localPinsRepo.requirePin(repo, lhsVersion);
+                        lhsResult.findCommit(overrideRepo.getRoot());
+                        PinnedRepoAccessor mhsResult = config.localPinsRepo.requirePin(repo, mhsVersion);
+                        mhsResult.findCommit(overrideRepo.getRoot());
+                        PinnedRepoAccessor rhsResult = config.localPinsRepo.requirePin(repo, rhsVersion);
+                        rhsResult.findCommit(overrideRepo.getRoot());
 
-                            if(strategy != null) {
-                                try {
-                                    strategy.invoke(repo, overrideRepo, lhsVersion, mhsVersion, rhsVersion);
+                        if(strategy != null) {
+                            try {
+                                strategy.invoke(repo, overrideRepo, lhsVersion, mhsVersion, rhsVersion);
 
-                                    // Oh, uh, that worked?  Maybe you didn't
-                                    // set up mergeDriver, maybe you created
-                                    // the conflict some other wacky way.
-                                    // Whatever the case, we honor it,
-                                    // uninteractively.
-                                    return new StepResult(ImmutableList.of(Pair.of(repo, overrideRepo.getCurrentCommit())), false);
-                                }
-                                catch(RuntimeException e) {
-                                    LOGGER.error("Attempted specified resolution strategy for " + repo + " failed", e);
-                                }
+                                // Oh, uh, that worked?  Maybe you didn't
+                                // set up mergeDriver, maybe you created
+                                // the conflict some other wacky way.
+                                // Whatever the case, we honor it,
+                                // uninteractively.
+                                return new StepResult(ImmutableList.of(Pair.of(repo, overrideRepo.getCurrentCommit())), false);
                             }
-                            else {
-                                overrideRepo.checkout(lhsVersion);
+                            catch(RuntimeException e) {
+                                LOGGER.error("Attempted specified resolution strategy for " + repo + " failed", e);
                             }
+                        }
+                        else {
+                            overrideRepo.checkout(lhsVersion);
+                        }
 
-                            ProcessHelper p = ProcessHelper.of(overrideRepo.getRoot(), System.getenv("SHELL"), "-i");
-                            p = p.apply(ProcessHelperUtils.STRIP_GIT_ENV);
-                            p = p.putEnv("LHS", lhsVersion.getRawDigest().toString());
-                            p = p.putEnv("MHS", mhsVersion.getRawDigest().toString());
-                            p = p.putEnv("RHS", rhsVersion.getRawDigest().toString());
-                            LOGGER.info("Invoking resolution shell for " + repo + "...");
-                            LOGGER.info("    LHS is " + lhsVersion.getRawDigest() + " (in $LHS)");
-                            LOGGER.info("    MHS is " + mhsVersion.getRawDigest() + " (in $MHS)");
-                            LOGGER.info("    RHS is " + rhsVersion.getRawDigest() + " (in $RHS)");
-                            LOGGER.info("    Exit with success to indicate HEAD is result");
-                            LOGGER.info("    Exit with failure to stop resolving here (but keep previously completed results)");
-                            p = p.inheritInput();
-                            p = p.inheritOutput();
-                            p = p.inheritError();
-                            int exitCode = p.run().exitCode;
-                            if(exitCode == 0) {
-                                VcsVersionDigest result = overrideRepo.getCurrentCommit();
-                                lhsResult.addPin(overrideRepo.getRoot(), result);
-                                rhsResult.addPin(overrideRepo.getRoot(), result);
-                                return new StepResult(ImmutableList.of(Pair.of(repo, result)), false);
-                            }
-                            else {
-                                return new StepResult(ImmutableList.<Pair<RepoTip, VcsVersionDigest>>of(), true);
-                            }
+                        ProcessHelper p = ProcessHelper.of(overrideRepo.getRoot(), System.getenv("SHELL"), "-i");
+                        p = p.apply(ProcessHelperUtils.STRIP_GIT_ENV);
+                        p = p.putEnv("LHS", lhsVersion.getRawDigest().toString());
+                        p = p.putEnv("MHS", mhsVersion.getRawDigest().toString());
+                        p = p.putEnv("RHS", rhsVersion.getRawDigest().toString());
+                        LOGGER.info("Invoking resolution shell for " + repo + "...");
+                        LOGGER.info("    LHS is " + lhsVersion.getRawDigest() + " (in $LHS)");
+                        LOGGER.info("    MHS is " + mhsVersion.getRawDigest() + " (in $MHS)");
+                        LOGGER.info("    RHS is " + rhsVersion.getRawDigest() + " (in $RHS)");
+                        LOGGER.info("    Exit with success to indicate HEAD is result");
+                        LOGGER.info("    Exit with failure to stop resolving here (but keep previously completed results)");
+                        p = p.inheritInput();
+                        p = p.inheritOutput();
+                        p = p.inheritError();
+                        int exitCode = p.run().exitCode;
+                        if(exitCode == 0) {
+                            VcsVersionDigest result = overrideRepo.getCurrentCommit();
+                            lhsResult.addPin(overrideRepo.getRoot(), result);
+                            rhsResult.addPin(overrideRepo.getRoot(), result);
+                            return new StepResult(ImmutableList.of(Pair.of(repo, result)), false);
+                        }
+                        else {
+                            return new StepResult(ImmutableList.<Pair<RepoTip, VcsVersionDigest>>of(), true);
                         }
                     });
                 }
