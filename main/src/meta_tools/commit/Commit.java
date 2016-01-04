@@ -142,13 +142,10 @@ public final class Commit extends QbtCommand<Commit.Options> {
                 }
 
                 private void addCommit(final CommitMaker commitMaker) {
-                    commitsBuilder.put(repo, new CommitMaker() {
-                        @Override
-                        public VcsVersionDigest commit(String message) {
-                            VcsVersionDigest commit = commitMaker.commit(message);
-                            pinnedAccessor.addPin(localRepoAccessor.dir, commit);
-                            return commit;
-                        }
+                    commitsBuilder.put(repo, (message) -> {
+                        VcsVersionDigest commit = commitMaker.commit(message);
+                        pinnedAccessor.addPin(localRepoAccessor.dir, commit);
+                        return commit;
                     });
                 }
 
@@ -159,13 +156,10 @@ public final class Commit extends QbtCommand<Commit.Options> {
                     }
 
                     // we'll make a new commit
-                    addCommit(new CommitMaker() {
-                        @Override
-                        public VcsVersionDigest commit(String message) {
-                            VcsVersionDigest commit = repoRepository.commit(false, message, commitLevel);
-                            LOGGER.info("[" + repo + "] Committed " + commit.getRawDigest());
-                            return commit;
-                        }
+                    addCommit((message) -> {
+                        VcsVersionDigest commit = repoRepository.commit(false, message, commitLevel);
+                        LOGGER.info("[" + repo + "] Committed " + commit.getRawDigest());
+                        return commit;
                     });
                     messagePrompt.add("[" + repo + "] Dirty, new commit");
                     return false;
@@ -199,13 +193,10 @@ public final class Commit extends QbtCommand<Commit.Options> {
                         // commit even if tree and message are identical, we
                         // decide to always rewrite (amend)
 
-                        addCommit(new CommitMaker() {
-                            @Override
-                            public VcsVersionDigest commit(String message) {
-                                VcsVersionDigest commit = repoRepository.commit(true, message, commitLevel);
-                                LOGGER.info("[" + repo + "] Committed (amend of " + currentRepoVersion.getRawDigest() + ") " + commit.getRawDigest());
-                                return commit;
-                            }
+                        addCommit((message) -> {
+                            VcsVersionDigest commit = repoRepository.commit(true, message, commitLevel);
+                            LOGGER.info("[" + repo + "] Committed (amend of " + currentRepoVersion.getRawDigest() + ") " + commit.getRawDigest());
+                            return commit;
                         });
                         messagePrompt.add("[" + repo + "] " + (repoRepository.isClean(commitLevel) ? "Clean" : "Dirty") + ", amend");
                         return false;
@@ -220,13 +211,10 @@ public final class Commit extends QbtCommand<Commit.Options> {
                         }
 
                         // satellite was unchanged in this commit and we're dirty, we'll make a new commit
-                        addCommit(new CommitMaker() {
-                            @Override
-                            public VcsVersionDigest commit(String message) {
-                                VcsVersionDigest commit = repoRepository.commit(false, message, commitLevel);
-                                LOGGER.info("[" + repo + "] Committed " + commit.getRawDigest());
-                                return commit;
-                            }
+                        addCommit((message) -> {
+                            VcsVersionDigest commit = repoRepository.commit(false, message, commitLevel);
+                            LOGGER.info("[" + repo + "] Committed " + commit.getRawDigest());
+                            return commit;
                         });
                         messagePrompt.add("[" + repo + "] Dirty, new commit");
                         return false;
