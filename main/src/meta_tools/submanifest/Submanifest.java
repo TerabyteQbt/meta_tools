@@ -1,7 +1,6 @@
 package meta_tools.submanifest;
 
 import com.google.common.base.Charsets;
-import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -121,7 +120,7 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
                     @Override
                     public ComputationTree<VcsVersionDigest> load(VcsVersionDigest base) {
                         LOGGER.debug("Processing " + sideName + " of [base] " + base + "...");
-                        return ComputationTree.constant(base).transform(mapBaseFunction);
+                        return ComputationTree.constant(base).transform((input) -> mapBase(input));
                     }
                 });
 
@@ -141,12 +140,9 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
                         }
                     }
 
-                    ComputationTree<VcsVersionDigest> nextTree = ComputationTree.list(parentComputationTreesBuilder.build()).transform(new Function<ImmutableList<VcsVersionDigest>, VcsVersionDigest>() {
-                        @Override
-                        public VcsVersionDigest apply(ImmutableList<VcsVersionDigest> parentResults) {
-                            LOGGER.debug("Processing " + sideName + " of " + next + "...");
-                            return map(next, cd, parentResults);
-                        }
+                    ComputationTree<VcsVersionDigest> nextTree = ComputationTree.list(parentComputationTreesBuilder.build()).transform((parentResults) -> {
+                        LOGGER.debug("Processing " + sideName + " of " + next + "...");
+                        return map(next, cd, parentResults);
                     });
 
                     computationTrees.put(next, nextTree);
@@ -160,25 +156,15 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
                     if(computationTree == null) {
                         computationTree = baseComputationTrees.getUnchecked(commit);
                     }
-                    b.add(computationTree.transform(new Function<VcsVersionDigest, ObjectUtils.Null>() {
-                        @Override
-                        public ObjectUtils.Null apply(VcsVersionDigest result) {
-                            System.out.println(sideName + " " + commitString + " (" + commit.getRawDigest() + ") -> " + result.getRawDigest());
-                            return ObjectUtils.NULL;
-                        }
+                    b.add(computationTree.transform((result) -> {
+                        System.out.println(sideName + " " + commitString + " (" + commit.getRawDigest() + ") -> " + result.getRawDigest());
+                        return ObjectUtils.NULL;
                     }));
                 }
                 return ComputationTree.list(b.build());
             }
 
             protected abstract VcsVersionDigest mapBase(VcsVersionDigest base);
-            private final Function<VcsVersionDigest, VcsVersionDigest> mapBaseFunction = new Function<VcsVersionDigest, VcsVersionDigest>() {
-                @Override
-                public VcsVersionDigest apply(VcsVersionDigest input) {
-                    return mapBase(input);
-                }
-            };
-
             protected abstract VcsVersionDigest map(VcsVersionDigest next, CommitData cd, ImmutableList<VcsVersionDigest> parents);
         }
 

@@ -173,12 +173,7 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
         return run(config, workspaceRoot, type, options, Options.commonOptions, lhs, rhs);
     }
 
-    private static final Function<RepoManifest, VcsVersionDigest> REPO_VERSION_FUNCTION = new Function<RepoManifest, VcsVersionDigest>() {
-        @Override
-        public VcsVersionDigest apply(RepoManifest repoManifest) {
-            return repoManifest.version;
-        }
-    };
+    private static final Function<RepoManifest, VcsVersionDigest> REPO_VERSION_FUNCTION = (repoManifest) -> repoManifest.version;
 
     public static <O> int run(final QbtConfig config, Path workspaceRoot, final String type, final OptionsResults<? extends O> options, final CommonOptionsDelegate<O> commonsOptions, QbtManifest lhs, QbtManifest rhs) {
         final ImmutableMap<String, String> vcsConfig = resolveConfig(workspaceRoot);

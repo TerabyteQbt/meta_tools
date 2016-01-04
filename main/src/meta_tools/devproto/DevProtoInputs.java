@@ -1,7 +1,6 @@
 package meta_tools.devproto;
 
 import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -38,24 +37,14 @@ public final class DevProtoInputs {
 
         @Override
         public ComputationTree<DevProtoResolvedInput> computationTree(CvRecursivePackageData<CumulativeVersionComputer.Result> r, final Stage1Callback cb) {
-            Map<String, Pair<NormalDependencyType, CvRecursivePackageData<CumulativeVersionComputer.Result>>> filteredChildren = Maps.filterEntries(r.children, new Predicate<Map.Entry<String, Pair<NormalDependencyType, CvRecursivePackageData<CumulativeVersionComputer.Result>>>>() {
-                @Override
-                public boolean apply(Map.Entry<String, Pair<NormalDependencyType, CvRecursivePackageData<CumulativeVersionComputer.Result>>> input) {
-                    return input.getValue().getLeft() == normalDependencyType;
-                }
-            });
+            Map<String, Pair<NormalDependencyType, CvRecursivePackageData<CumulativeVersionComputer.Result>>> filteredChildren = Maps.filterEntries(r.children, (input) -> input.getValue().getLeft() == normalDependencyType);
             Map<String, Pair<NormalDependencyType, ComputationTree<T>>> mappedChildren = RecursiveDataUtils.transformMap(filteredChildren, new Function<CvRecursivePackageData<CumulativeVersionComputer.Result>, ComputationTree<T>>() {
                 @Override
                 public ComputationTree<T> apply(CvRecursivePackageData<CumulativeVersionComputer.Result> input) {
                     return mapChild(cb, input);
                 }
             });
-            return RecursiveDataUtils.computationTreeMap(mappedChildren, new Function<Map<String, Pair<NormalDependencyType, T>>, DevProtoResolvedInput>() {
-                @Override
-                public DevProtoResolvedInput apply(final Map<String, Pair<NormalDependencyType, T>> input) {
-                    return (scope, inputsDir) -> materialize1(scope, inputsDir, input);
-                }
-            });
+            return RecursiveDataUtils.computationTreeMap(mappedChildren, (input) -> (scope, inputsDir) -> materialize1(scope, inputsDir, input));
         }
 
         protected abstract ComputationTree<T> mapChild(Stage1Callback cb, CvRecursivePackageData<CumulativeVersionComputer.Result> r);
@@ -134,12 +123,7 @@ public final class DevProtoInputs {
     public static DevProtoInput extra(final PackageTip pkg) {
         return (r, cb) -> {
             CvRecursivePackageData<CumulativeVersionComputer.Result> rExtra = cb.computeCumulativeVersion(pkg);
-            return cb.buildComputationTree(rExtra).transform(new Function<CvRecursivePackageData<ArtifactReference>, DevProtoResolvedInput>() {
-                @Override
-                public DevProtoResolvedInput apply(final CvRecursivePackageData<ArtifactReference> input) {
-                    return (scope, inputsDir) -> BuildUtils.materializeRuntimeArtifacts(scope, inputsDir.resolve("extra").resolve(pkg.name), input);
-                }
-            });
+            return cb.buildComputationTree(rExtra).transform((input) -> (scope, inputsDir) -> BuildUtils.materializeRuntimeArtifacts(scope, inputsDir.resolve("extra").resolve(pkg.name), input));
         };
     }
 

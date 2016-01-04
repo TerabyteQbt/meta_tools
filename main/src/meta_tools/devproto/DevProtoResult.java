@@ -1,6 +1,5 @@
 package meta_tools.devproto;
 
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import java.util.Map;
@@ -12,11 +11,6 @@ import qbt.recursive.rd.RecursiveData;
 
 public final class DevProtoResult extends RecursiveData<Either<ArtifactReference, ArtifactReference>, String, ObjectUtils.Null, DevProtoResult> {
     public DevProtoResult(Either<ArtifactReference, ArtifactReference> result, Map<String, DevProtoResult> children) {
-        super(result, ImmutableMap.copyOf(Maps.transformValues(children, new Function<DevProtoResult, Pair<ObjectUtils.Null, DevProtoResult>>() {
-            @Override
-            public Pair<ObjectUtils.Null, DevProtoResult> apply(DevProtoResult input) {
-                return Pair.of(ObjectUtils.NULL, input);
-            }
-        })));
+        super(result, ImmutableMap.copyOf(Maps.transformValues(children, (input) -> Pair.of(ObjectUtils.NULL, input))));
     }
 }

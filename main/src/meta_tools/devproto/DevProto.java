@@ -1,6 +1,5 @@
 package meta_tools.devproto;
 
-import com.google.common.base.Function;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -188,12 +187,7 @@ public final class DevProto extends QbtCommand<DevProto.Options> {
                             ComputationTree<Either<ArtifactReference, ArtifactReference>> singleResultComputation;
                             if(inputs == null) {
                                 // Package does not participate, build and use that as fixed
-                                singleResultComputation = buildComputationMapper.transform(r).transform(new Function<CvRecursivePackageData<ArtifactReference>, Either<ArtifactReference, ArtifactReference>>() {
-                                    @Override
-                                    public Either<ArtifactReference, ArtifactReference> apply(CvRecursivePackageData<ArtifactReference> input) {
-                                        return Either.<ArtifactReference, ArtifactReference>right(input.result.getRight());
-                                    }
-                                });
+                                singleResultComputation = buildComputationMapper.transform(r).transform((input) -> Either.<ArtifactReference, ArtifactReference>right(input.result.getRight()));
                             }
                             else {
                                 // Package does participate, do whatever the
@@ -217,12 +211,7 @@ public final class DevProto extends QbtCommand<DevProto.Options> {
                                         }
                                     }));
                                 }
-                                singleResultComputation = ComputationTree.list(inputsComputationTreesBuilder.build()).transform(new Function<ImmutableList<DevProtoResolvedInput>, Either<ArtifactReference, ArtifactReference>>() {
-                                    @Override
-                                    public Either<ArtifactReference, ArtifactReference> apply(ImmutableList<DevProtoResolvedInput> input) {
-                                        return Either.<ArtifactReference, ArtifactReference>left(runDevProto(r, input));
-                                    }
-                                });
+                                singleResultComputation = ComputationTree.list(inputsComputationTreesBuilder.build()).transform((input) -> Either.<ArtifactReference, ArtifactReference>left(runDevProto(r, input)));
                             }
 
                             // now what is up with our deps?
@@ -236,12 +225,7 @@ public final class DevProto extends QbtCommand<DevProto.Options> {
                             }
                             ComputationTree<ImmutableMap<String, DevProtoResult>> strongDepResultsCombined = ComputationTree.map(strongDepResults.build());
 
-                            return ComputationTree.pair(singleResultComputation, strongDepResultsCombined).transform(new Function<Pair<Either<ArtifactReference, ArtifactReference>, ImmutableMap<String, DevProtoResult>>, DevProtoResult>() {
-                                @Override
-                                public DevProtoResult apply(Pair<Either<ArtifactReference, ArtifactReference>, ImmutableMap<String, DevProtoResult>> input) {
-                                    return new DevProtoResult(input.getLeft(), input.getRight());
-                                }
-                            });
+                            return ComputationTree.pair(singleResultComputation, strongDepResultsCombined).transform((input) -> new DevProtoResult(input.getLeft(), input.getRight()));
                         }
                     };
 
@@ -252,12 +236,9 @@ public final class DevProto extends QbtCommand<DevProto.Options> {
                             LOGGER.info("Skipping generation for non-proto package " + packageTip);
                             continue;
                         }
-                        computationTreesBuilder.add(devProtoComputationMapper.transform(r).transform(new Function<DevProtoResult, ObjectUtils.Null>() {
-                            @Override
-                            public ObjectUtils.Null apply(DevProtoResult input) {
-                                LOGGER.info("Completed proto for " + packageTip);
-                                return ObjectUtils.NULL;
-                            }
+                        computationTreesBuilder.add(devProtoComputationMapper.transform(r).transform((input) -> {
+                            LOGGER.info("Completed proto for " + packageTip);
+                            return ObjectUtils.NULL;
                         }));
                     }
                     return ComputationTree.list(computationTreesBuilder.build()).ignore();
