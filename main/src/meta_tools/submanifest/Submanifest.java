@@ -179,19 +179,19 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
 
             @Override
             protected VcsVersionDigest mapBase(VcsVersionDigest base) {
-                CommitData cd = metaRepository.getCommitData(base);
-                cd = cd.set(CommitData.TREE, liftTree(cd.get(CommitData.TREE)));
+                CommitData.Builder cd = metaRepository.getCommitData(base).builder();
+                cd = cd.transform(CommitData.TREE, this::liftTree);
                 cd = cd.set(CommitData.PARENTS, ImmutableList.of(base));
                 cd = cd.set(CommitData.MESSAGE, "(submanifest import)");
-                return metaRepository.createCommit(cd);
+                return metaRepository.createCommit(cd.build());
             }
 
             @Override
             protected VcsVersionDigest map(VcsVersionDigest commit, CommitData cd0, ImmutableList<VcsVersionDigest> parents) {
-                CommitData cd = cd0;
-                cd = cd.set(CommitData.TREE, liftTree(cd.get(CommitData.TREE)));
+                CommitData.Builder cd = cd0.builder();
+                cd = cd.transform(CommitData.TREE, this::liftTree);
                 cd = cd.set(CommitData.PARENTS, parents);
-                return metaRepository.createCommit(cd);
+                return metaRepository.createCommit(cd.build());
             }
         }.build("lift", Options.lifts);
 

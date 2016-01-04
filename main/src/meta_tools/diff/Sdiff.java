@@ -88,7 +88,7 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
                 }
                 VcsVersionDigest newVersion = localRepoAccessor.vcs.getRepository(localRepoAccessor.dir).getCurrentCommit();
                 if(!newVersion.equals(version)) {
-                    b = b.with(repo, repoManifest.builder().set(RepoManifest.VERSION, newVersion));
+                    b = b.transform(repo, (repoManifest2) -> (repoManifest2.set(RepoManifest.VERSION, newVersion)));
                 }
             }
 
