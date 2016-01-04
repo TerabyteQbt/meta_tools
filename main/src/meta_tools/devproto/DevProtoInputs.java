@@ -53,12 +53,7 @@ public final class DevProtoInputs {
             return RecursiveDataUtils.computationTreeMap(mappedChildren, new Function<Map<String, Pair<NormalDependencyType, T>>, DevProtoResolvedInput>() {
                 @Override
                 public DevProtoResolvedInput apply(final Map<String, Pair<NormalDependencyType, T>> input) {
-                    return new DevProtoResolvedInput() {
-                        @Override
-                        public void materialize(Maybe<FreeScope> scope, Path inputsDir) {
-                            materialize1(scope, inputsDir, input);
-                        }
-                    };
+                    return (scope, inputsDir) -> materialize1(scope, inputsDir, input);
                 }
             });
         }
@@ -144,12 +139,7 @@ public final class DevProtoInputs {
                 return cb.buildComputationTree(rExtra).transform(new Function<CvRecursivePackageData<ArtifactReference>, DevProtoResolvedInput>() {
                     @Override
                     public DevProtoResolvedInput apply(final CvRecursivePackageData<ArtifactReference> input) {
-                        return new DevProtoResolvedInput() {
-                            @Override
-                            public void materialize(Maybe<FreeScope> scope, Path inputsDir) {
-                                BuildUtils.materializeRuntimeArtifacts(scope, inputsDir.resolve("extra").resolve(pkg.name), input);
-                            }
-                        };
+                        return (scope, inputsDir) -> BuildUtils.materializeRuntimeArtifacts(scope, inputsDir.resolve("extra").resolve(pkg.name), input);
                     }
                 });
             }
