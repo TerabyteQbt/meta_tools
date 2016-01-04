@@ -271,7 +271,7 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                         }
 
                         ProcessHelper p = ProcessHelper.of(overrideRepo.getRoot(), System.getenv("SHELL"), "-i");
-                        p = p.apply(ProcessHelperUtils.STRIP_GIT_ENV);
+                        p = p.apply(ProcessHelperUtils::stripGitEnv);
                         p = p.putEnv("LHS", lhsVersion.getRawDigest().toString());
                         p = p.putEnv("MHS", mhsVersion.getRawDigest().toString());
                         p = p.putEnv("RHS", rhsVersion.getRawDigest().toString());

@@ -120,7 +120,7 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
                     @Override
                     public ComputationTree<VcsVersionDigest> load(VcsVersionDigest base) {
                         LOGGER.debug("Processing " + sideName + " of [base] " + base + "...");
-                        return ComputationTree.constant(base).transform((input) -> mapBase(input));
+                        return ComputationTree.constant(base).transform(Side.this::mapBase);
                     }
                 });
 
@@ -200,7 +200,7 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
                 LegacyQbtManifest<?, ?> manifest = QbtManifestVersions.parseLegacy(ImmutableList.copyOf(metaRepository.showFile(tree, "qbt-manifest")));
                 TreeAccessor treeAccessor = metaRepository.getTreeAccessor(tree);
                 byte[] importedBytes = treeAccessor.get(importedFile).rightOrNull();
-                ImmutableSet<RepoTip> keep = ImmutableSet.copyOf(Iterables.transform(Arrays.asList(new String(importedBytes, Charsets.UTF_8).split("\n")), RepoTip.TYPE.FROM_STRING));
+                ImmutableSet<RepoTip> keep = ImmutableSet.copyOf(Iterables.transform(Arrays.asList(new String(importedBytes, Charsets.UTF_8).split("\n")), RepoTip.TYPE::parseRequire));
                 LegacyQbtManifest.Builder<?, ?> newManifestBuilder = manifest.builder();
                 for(RepoTip repo : manifest.getRepos()) {
                     if(!keep.contains(repo)) {

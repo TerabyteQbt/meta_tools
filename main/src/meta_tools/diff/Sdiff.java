@@ -243,7 +243,7 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
                 commandBuilder.add("-");
                 commandBuilder.addAll(options.get(commonsOptions.extraArgs));
                 ProcessHelper p = ProcessHelper.of(dir, commandBuilder.build().toArray(new String[0]));
-                p = p.apply(ProcessHelperUtils.STRIP_GIT_ENV);
+                p = p.apply(ProcessHelperUtils::stripGitEnv);
                 for(Map.Entry<String, VcsVersionDigest> e : versions.entrySet()) {
                     p = p.putEnv(e.getKey(), e.getValue().getRawDigest().toString());
                 }
