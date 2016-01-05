@@ -260,7 +260,10 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                                 // the conflict some other wacky way.
                                 // Whatever the case, we honor it,
                                 // uninteractively.
-                                return new StepResult(ImmutableList.of(Pair.of(repo, overrideRepo.getCurrentCommit())), false);
+                                VcsVersionDigest result = overrideRepo.getCurrentCommit();
+                                lhsResult.addPin(overrideRepo.getRoot(), result);
+                                rhsResult.addPin(overrideRepo.getRoot(), result);
+                                return new StepResult(ImmutableList.of(Pair.of(repo, result)), false);
                             }
                             catch(RuntimeException e) {
                                 LOGGER.error("Attempted specified resolution strategy for " + repo + " failed", e);
