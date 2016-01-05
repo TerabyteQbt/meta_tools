@@ -14,7 +14,8 @@ import qbt.QbtCommandName;
 import qbt.QbtCommandOptions;
 import qbt.QbtUtils;
 import qbt.config.QbtConfig;
-import qbt.manifest.QbtManifest;
+import qbt.manifest.QbtManifestVersions;
+import qbt.manifest.current.QbtManifest;
 import qbt.options.ConfigOptionsDelegate;
 
 public class SdiffDriver extends QbtCommand<SdiffDriver.Options> {
@@ -53,8 +54,8 @@ public class SdiffDriver extends QbtCommand<SdiffDriver.Options> {
         String lhsFile = args.get(1);
         String rhsFile = args.get(4);
 
-        QbtManifest lhs = QbtManifest.parse(Paths.get(lhsFile));
-        QbtManifest rhs = QbtManifest.parse(Paths.get(rhsFile));
+        QbtManifest lhs = QbtManifestVersions.parse(ImmutableList.copyOf(QbtUtils.readLines(Paths.get(lhsFile))));
+        QbtManifest rhs = QbtManifestVersions.parse(ImmutableList.copyOf(QbtUtils.readLines(Paths.get(rhsFile))));
 
         return Sdiff.run(config, workspaceRoot, "diff", options, Options.commonOptions, lhs, rhs);
     }

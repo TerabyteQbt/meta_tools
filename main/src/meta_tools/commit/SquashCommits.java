@@ -23,8 +23,10 @@ import qbt.QbtTempDir;
 import qbt.QbtUtils;
 import qbt.VcsVersionDigest;
 import qbt.config.QbtConfig;
-import qbt.manifest.QbtManifest;
-import qbt.manifest.RepoManifest;
+import qbt.manifest.LegacyQbtManifest;
+import qbt.manifest.QbtManifestVersions;
+import qbt.manifest.current.QbtManifest;
+import qbt.manifest.current.RepoManifest;
 import qbt.options.ConfigOptionsDelegate;
 import qbt.options.ManifestOptionsDelegate;
 import qbt.options.ManifestOptionsResult;
@@ -69,8 +71,10 @@ public final class SquashCommits extends QbtCommand<SquashCommits.Options> {
     public int run(OptionsResults<? extends Options> options) throws Exception {
         QbtConfig config = Options.config.getConfig(options);
         ManifestOptionsResult manifestResult = Options.manifest.getResult(options);
-        QbtManifest manifest = manifestResult.parse();
-        Collection<RepoTip> repos = Options.repos.getRepos(config, manifest, options);
+        LegacyQbtManifest<?, ?> manifestLegacy = manifestResult.parseLegacy();
+
+        QbtManifest manifestCurrent = manifestLegacy.current();
+        Collection<RepoTip> repos = Options.repos.getRepos(config, manifestCurrent, options);
 
         String metaVcs = options.get(Options.metaVcs);
 
@@ -84,16 +88,16 @@ public final class SquashCommits extends QbtCommand<SquashCommits.Options> {
 
         ImmutableList.Builder<QbtManifest> parentManifestsBuilder = ImmutableList.builder();
         for(VcsVersionDigest metaParent : metaCurrentCd.get(CommitData.PARENTS)) {
-            parentManifestsBuilder.add(QbtManifest.parse(metaParent.getRawDigest() + ":qbt-manifest", metaRepository.showFile(metaParent, "qbt-manifest")));
+            parentManifestsBuilder.add(QbtManifestVersions.parse(ImmutableList.copyOf(metaRepository.showFile(metaParent, "qbt-manifest"))));
         }
         List<QbtManifest> parentManifests = parentManifestsBuilder.build();
 
-        QbtManifest.Builder newManifest = manifest.builder();
+        LegacyQbtManifest.Builder<?, ?> newManifest = manifestLegacy.builder();
         boolean fail = false;
         boolean changed = false;
         try(QbtTempDir tempDir = new QbtTempDir()) {
             for(RepoTip repo : repos) {
-                RepoManifest repoManifest = manifest.repos.get(repo);
+                RepoManifest repoManifest = manifestCurrent.repos.get(repo);
 
                 VcsVersionDigest tip = repoManifest.version;
                 LOGGER.debug("[" + repo + "] tip = " + tip);
@@ -182,7 +186,7 @@ public final class SquashCommits extends QbtCommand<SquashCommits.Options> {
 
                 changed = true;
                 pinnedAccessor.addPin(repoDir, newTip);
-                newManifest = newManifest.with(repo, repoManifest.builder().set(RepoManifest.VERSION, newTip));
+                newManifest = newManifest.withRepoVersion(repo, newTip);
                 LOGGER.info("[" + repo + "] Rebuilt " + revWalk.size() + " commit(s) behind " + tip.getRawDigest() + " -> " + newTip.getRawDigest());
             }
         }

@@ -25,8 +25,11 @@ import qbt.QbtUtils;
 import qbt.VcsVersionDigest;
 import qbt.config.QbtConfig;
 import qbt.mains.MergeManifests;
-import qbt.manifest.QbtManifest;
-import qbt.manifest.RepoManifest;
+import qbt.manifest.LegacyQbtManifest;
+import qbt.manifest.QbtManifestVersion;
+import qbt.manifest.QbtManifestVersions;
+import qbt.manifest.current.QbtManifest;
+import qbt.manifest.current.RepoManifest;
 import qbt.map.DependencyComputer;
 import qbt.map.PackageTipDependenciesMapper;
 import qbt.repo.LocalRepoAccessor;
@@ -63,49 +66,54 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
     @Override
     public int run(final OptionsResults<? extends Options> options) throws Exception {
         final QbtConfig config = QbtConfig.parse(QbtUtils.findInMeta("qbt-config", null));
-        MergeManifests.Strategy strategy = options.get(Options.strategy);
-        Path manifestPath = QbtUtils.findInMeta("qbt-manifest", null);
+        final MergeManifests.Strategy strategy = options.get(Options.strategy);
+        final Path manifestPath = QbtUtils.findInMeta("qbt-manifest", null);
         Triple<ImmutableList<String>, ImmutableList<String>, ImmutableList<String>> inLines = QbtUtils.parseConflictLines(QbtUtils.readLines(manifestPath));
-        QbtManifest lhs = QbtManifest.parse(manifestPath + "@{LHS}", inLines.getLeft());
-        QbtManifest mhs = QbtManifest.parse(manifestPath + "@{MHS}", inLines.getMiddle());
-        QbtManifest rhs = QbtManifest.parse(manifestPath + "@{RHS}", inLines.getRight());
+        final LegacyQbtManifest<?, ?> lhsLegacyResult = QbtManifestVersions.parseLegacy(inLines.getLeft());
+        final LegacyQbtManifest<?, ?> mhsLegacyResult = QbtManifestVersions.parseLegacy(inLines.getMiddle());
+        final LegacyQbtManifest<?, ?> rhsLegacyResult = QbtManifestVersions.parseLegacy(inLines.getRight());
+        QbtManifestVersion<?, ?> targetVersion = MergeManifests.chooseTargetVersion(lhsLegacyResult, mhsLegacyResult, rhsLegacyResult);
+        return new Object() {
+            public <M, B> int run(QbtManifestVersion<M, B> targetVersion) {
+                QbtManifest lhsCurrent = lhsLegacyResult.current();
+                QbtManifest mhsCurrent = mhsLegacyResult.current();
+                QbtManifest rhsCurrent = rhsLegacyResult.current();
 
-        ImmutableMultimap.Builder<RepoTip, RepoTip> repoDeps = ImmutableMultimap.builder();
-        if(!options.get(Options.noDeps)) {
-            addDeps(repoDeps, lhs);
-            addDeps(repoDeps, mhs);
-            addDeps(repoDeps, rhs);
-        }
-        StepsBuilder b = new StepsBuilder(config, strategy, repoDeps.build(), lhs, mhs, rhs);
-        b.addSteps(lhs.repos.keySet(), false);
-        b.addSteps(mhs.repos.keySet(), false);
-        b.addSteps(rhs.repos.keySet(), false);
-        ImmutableList<Step> steps = b.build();
+                ImmutableMultimap.Builder<RepoTip, RepoTip> repoDeps = ImmutableMultimap.builder();
+                if(!options.get(Options.noDeps)) {
+                    addDeps(repoDeps, lhsCurrent);
+                    addDeps(repoDeps, mhsCurrent);
+                    addDeps(repoDeps, rhsCurrent);
+                }
+                StepsBuilder b = new StepsBuilder(config, strategy, repoDeps.build(), lhsCurrent, mhsCurrent, rhsCurrent);
+                b.addSteps(lhsCurrent.repos.keySet(), false);
+                b.addSteps(mhsCurrent.repos.keySet(), false);
+                b.addSteps(rhsCurrent.repos.keySet(), false);
+                ImmutableList<Step> steps = b.build();
 
-        for(Step s : steps) {
-            StepResult sr = s.run();
-            QbtManifest.Builder lhsBuilder = lhs.builder();
-            QbtManifest.Builder mhsBuilder = mhs.builder();
-            QbtManifest.Builder rhsBuilder = rhs.builder();
-            for(Pair<RepoTip, VcsVersionDigest> update : sr.updates) {
-                RepoTip repo = update.getLeft();
-                VcsVersionDigest version = update.getRight();
-                LOGGER.info("Resolved " + repo + " to " + version.getRawDigest());
-                lhsBuilder = lhsBuilder.with(repo, lhs.repos.get(repo).builder().set(RepoManifest.VERSION, version));
-                mhsBuilder = mhsBuilder.with(repo, mhs.repos.get(repo).builder().set(RepoManifest.VERSION, version));
-                rhsBuilder = rhsBuilder.with(repo, rhs.repos.get(repo).builder().set(RepoManifest.VERSION, version));
+                B lhsNew = lhsLegacyResult.upgrade(targetVersion).builder().builder;
+                B mhsNew = mhsLegacyResult.upgrade(targetVersion).builder().builder;
+                B rhsNew = rhsLegacyResult.upgrade(targetVersion).builder().builder;
+                for(Step s : steps) {
+                    StepResult sr = s.run();
+                    for(Pair<RepoTip, VcsVersionDigest> update : sr.updates) {
+                        RepoTip repo = update.getLeft();
+                        VcsVersionDigest version = update.getRight();
+                        LOGGER.info("Resolved " + repo + " to " + version.getRawDigest());
+                        lhsNew = targetVersion.withRepoVersion(lhsNew, repo, version);
+                        mhsNew = targetVersion.withRepoVersion(mhsNew, repo, version);
+                        rhsNew = targetVersion.withRepoVersion(rhsNew, repo, version);
+                    }
+                    QbtUtils.writeLines(manifestPath, targetVersion.parser().deparse("LHS", targetVersion.build(lhsNew), "MHS", targetVersion.build(mhsNew), "RHS", targetVersion.build(rhsNew)).getRight());
+                    if(sr.allBailNow) {
+                        LOGGER.info("Exit requested");
+                        return 1;
+                    }
+                }
+
+                return 0;
             }
-            lhs = lhsBuilder.build();
-            mhs = mhsBuilder.build();
-            rhs = rhsBuilder.build();
-            QbtUtils.writeLines(manifestPath, QbtManifest.deparseConflicts("LHS", lhs, "MHS", mhs, "RHS", rhs).getRight());
-            if(sr.allBailNow) {
-                LOGGER.info("Exit requested");
-                return 1;
-            }
-        }
-
-        return 0;
+        }.run(targetVersion);
     }
 
     private static void addDeps(ImmutableMultimap.Builder<RepoTip, RepoTip> b, QbtManifest manifest) {

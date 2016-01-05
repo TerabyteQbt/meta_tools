@@ -28,8 +28,10 @@ import qbt.QbtTempDir;
 import qbt.QbtUtils;
 import qbt.VcsVersionDigest;
 import qbt.config.QbtConfig;
-import qbt.manifest.QbtManifest;
-import qbt.manifest.RepoManifest;
+import qbt.manifest.LegacyQbtManifest;
+import qbt.manifest.QbtManifestVersions;
+import qbt.manifest.current.QbtManifest;
+import qbt.manifest.current.RepoManifest;
 import qbt.options.ConfigOptionsDelegate;
 import qbt.options.ManifestOptionsDelegate;
 import qbt.options.ManifestOptionsResult;
@@ -79,9 +81,10 @@ public final class Commit extends QbtCommand<Commit.Options> {
     @Override
     public int run(OptionsResults<? extends Options> options) throws Exception {
         QbtConfig config = Options.config.getConfig(options);
-        ManifestOptionsResult manifestResult = Options.manifest.getResult(options);
-        QbtManifest manifest = manifestResult.parse();
-        Collection<RepoTip> repos = Options.repos.getRepos(config, manifest, options);
+        final ManifestOptionsResult manifestResult = Options.manifest.getResult(options);
+        LegacyQbtManifest<?, ?> manifestLegacy = manifestResult.parseLegacy();
+        QbtManifest manifestCurrent = manifestLegacy.current();
+        Collection<RepoTip> repos = Options.repos.getRepos(config, manifestCurrent, options);
         final CommitLevel commitLevel;
         {
             CommitLevel commitLevelTemp = CommitLevel.STAGED;
@@ -98,14 +101,14 @@ public final class Commit extends QbtCommand<Commit.Options> {
         String metaVcs = options.get(Options.metaVcs);
 
         Path metaDir = QbtUtils.findInMeta("", null);
-        Repository metaRepository = VcsRegistry.getLocalVcs(metaVcs).getRepository(metaDir);
+        final Repository metaRepository = VcsRegistry.getLocalVcs(metaVcs).getRepository(metaDir);
         if(!metaRepository.isClean()) {
             throw new IllegalArgumentException("Meta is dirty!");
         }
 
         ImmutableList.Builder<QbtManifest> parentManifestsBuilder = ImmutableList.builder();
         for(VcsVersionDigest metaParent : metaRepository.getCommitData(metaRepository.getCurrentCommit()).get(CommitData.PARENTS)) {
-            parentManifestsBuilder.add(QbtManifest.parse(metaParent.getRawDigest() + ":qbt-manifest", metaRepository.showFile(metaParent, "qbt-manifest")));
+            parentManifestsBuilder.add(QbtManifestVersions.parse(ImmutableList.copyOf(metaRepository.showFile(metaParent, "qbt-manifest"))));
         }
         final List<QbtManifest> parentManifests = parentManifestsBuilder.build();
 
@@ -113,7 +116,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
         final ImmutableList.Builder<String> messagePrompt = ImmutableList.builder();
         boolean fail = false;
         for(final RepoTip repo : repos) {
-            RepoManifest repoManifest = manifest.repos.get(repo);
+            RepoManifest repoManifest = manifestCurrent.repos.get(repo);
 
             final LocalRepoAccessor localRepoAccessor = config.localRepoFinder.findLocalRepo(repo);
             if(localRepoAccessor == null) {
@@ -287,11 +290,11 @@ public final class Commit extends QbtCommand<Commit.Options> {
                 }
             }
         }
-        QbtManifest.Builder newManifest = manifest.builder();
+        LegacyQbtManifest.Builder<?, ?> newManifest = manifestLegacy.builder();
         for(Map.Entry<RepoTip, CommitMaker> e : commitsBuilder.build().entrySet()) {
             RepoTip repo = e.getKey();
             VcsVersionDigest repoVersion = e.getValue().commit(message);
-            newManifest = newManifest.with(repo, manifest.repos.get(repo).builder().set(RepoManifest.VERSION, repoVersion));
+            newManifest = newManifest.withRepoVersion(repo, repoVersion);
         }
         manifestResult.deparse(newManifest.build());
         VcsVersionDigest commit = metaRepository.commit(amend, message, CommitLevel.MODIFIED);
