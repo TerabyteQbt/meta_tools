@@ -18,8 +18,8 @@ import misc1.commons.Either;
 import misc1.commons.ExceptionUtils;
 import misc1.commons.Maybe;
 import misc1.commons.concurrent.ctree.ComputationTree;
-import misc1.commons.options.NamedStringSingletonArgumentOptionsFragment;
 import misc1.commons.options.OptionsFragment;
+import misc1.commons.options.OptionsLibrary;
 import misc1.commons.options.OptionsResults;
 import misc1.commons.ph.ProcessHelper;
 import misc1.commons.resources.FreeScope;
@@ -62,12 +62,13 @@ public final class DevProto extends QbtCommand<DevProto.Options> {
 
     @QbtCommandName("devProto")
     public static interface Options extends QbtCommandOptions {
+        public static final OptionsLibrary<Options> o = OptionsLibrary.of();
         public static final ConfigOptionsDelegate<Options> config = new ConfigOptionsDelegate<Options>();
         public static final ManifestOptionsDelegate<Options> manifest = new ManifestOptionsDelegate<Options>();
         public static final CumulativeVersionComputerOptionsDelegate<Options> cumulativeVersionComputerOptions = new CumulativeVersionComputerOptionsDelegate<Options>();
         public static final PackageMapperHelperOptionsDelegate<Options> packageMapperHelperOptions = new PackageMapperHelperOptionsDelegate<Options>();
         public static final PackageActionOptionsDelegate<Options> packages = new PackageActionOptionsDelegate<Options>(PackageActionOptionsDelegate.NoArgsBehaviour.EMPTY);
-        public static final OptionsFragment<Options, ?, String> proto = new NamedStringSingletonArgumentOptionsFragment<Options>(ImmutableList.of("--proto"), Maybe.<String>not(), "Protocol to run");
+        public static final OptionsFragment<Options, String> proto = o.oneArg("proto").transform(o.singleton()).helpDesc("Protocol to run");
     }
 
     @Override

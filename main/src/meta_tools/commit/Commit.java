@@ -12,10 +12,8 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import misc1.commons.Maybe;
-import misc1.commons.options.NamedBooleanFlagOptionsFragment;
-import misc1.commons.options.NamedStringSingletonArgumentOptionsFragment;
 import misc1.commons.options.OptionsFragment;
+import misc1.commons.options.OptionsLibrary;
 import misc1.commons.options.OptionsResults;
 import misc1.commons.ph.ProcessHelper;
 import org.slf4j.Logger;
@@ -49,14 +47,15 @@ public final class Commit extends QbtCommand<Commit.Options> {
 
     @QbtCommandName("commit")
     public static interface Options extends QbtCommandOptions {
+        public static final OptionsLibrary<Options> o = OptionsLibrary.of();
         public static final ConfigOptionsDelegate<Options> config = new ConfigOptionsDelegate<Options>();
         public static final ManifestOptionsDelegate<Options> manifest = new ManifestOptionsDelegate<Options>();
         public static final RepoActionOptionsDelegate<Options> repos = new RepoActionOptionsDelegate<Options>(RepoActionOptionsDelegate.NoArgsBehaviour.OVERRIDES);
-        public static final OptionsFragment<Options, ?, Boolean> amend = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("--amend"), "Amend existing commit instead of making a new one");
-        public static final OptionsFragment<Options, ?, String> metaVcs = new NamedStringSingletonArgumentOptionsFragment<Options>(ImmutableList.of("--metaVcs"), Maybe.of("git"), "VCS for meta");
-        public static final OptionsFragment<Options, ?, String> message = new NamedStringSingletonArgumentOptionsFragment<Options>(ImmutableList.of("--message", "-m"), Maybe.<String>of(null), "Commit message");
-        public static final OptionsFragment<Options, ?, Boolean> aggressive = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("-a"), "Commit harder.");
-        public static final OptionsFragment<Options, ?, Boolean> veryAggressive = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("-A"), "Commit even harder.");
+        public static final OptionsFragment<Options, Boolean> amend = o.zeroArg("amend").transform(o.flag()).helpDesc("Amend existing commit instead of making a new one");
+        public static final OptionsFragment<Options, String> metaVcs = o.oneArg("metaVcs").transform(o.singleton("git")).helpDesc("VCS for meta");
+        public static final OptionsFragment<Options, String> message = o.oneArg("message", "m").transform(o.singleton(null)).helpDesc("Commit message");
+        public static final OptionsFragment<Options, Boolean> aggressive = o.zeroArg("a").transform(o.flag()).helpDesc("Commit harder.");
+        public static final OptionsFragment<Options, Boolean> veryAggressive = o.zeroArg("A").transform(o.flag()).helpDesc("Commit even harder.");
     }
 
     @Override

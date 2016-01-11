@@ -3,8 +3,8 @@ package meta_tools.status;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import java.util.Collection;
-import misc1.commons.options.NamedBooleanFlagOptionsFragment;
 import misc1.commons.options.OptionsFragment;
+import misc1.commons.options.OptionsLibrary;
 import misc1.commons.options.OptionsResults;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,10 +29,11 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
 
     @QbtCommandName("status")
     public static interface Options extends QbtCommandOptions {
+        public static final OptionsLibrary<Options> o = OptionsLibrary.of();
         public static final ConfigOptionsDelegate<Options> config = new ConfigOptionsDelegate<Options>();
         public static final ManifestOptionsDelegate<Options> manifest = new ManifestOptionsDelegate<Options>();
         public static final RepoActionOptionsDelegate<Options> repos = new RepoActionOptionsDelegate<Options>(RepoActionOptionsDelegate.NoArgsBehaviour.OVERRIDES);
-        public static final OptionsFragment<Options, ?, Boolean> verbose = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("-v"), "Show more detailed status for dirty repos");
+        public static final OptionsFragment<Options, Boolean> verbose = o.zeroArg("v").transform(o.flag()).helpDesc("Show more detailed status for dirty repos");
     }
 
     @Override

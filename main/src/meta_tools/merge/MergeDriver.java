@@ -3,11 +3,9 @@ package meta_tools.merge;
 import com.google.common.collect.ImmutableList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import misc1.commons.Maybe;
-import misc1.commons.options.NamedEnumSingletonArgumentOptionsFragment;
 import misc1.commons.options.OptionsFragment;
+import misc1.commons.options.OptionsLibrary;
 import misc1.commons.options.OptionsResults;
-import misc1.commons.options.UnparsedOptionsFragment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qbt.HelpTier;
@@ -21,8 +19,9 @@ public class MergeDriver extends QbtCommand<MergeDriver.Options> {
 
     @QbtCommandName("mergeDriver")
     public static interface Options extends QbtCommandOptions {
-        public static final OptionsFragment<Options, ?, MergeManifests.StrategyEnum> pullStrategy = new NamedEnumSingletonArgumentOptionsFragment<Options, MergeManifests.StrategyEnum>(MergeManifests.StrategyEnum.class, ImmutableList.of("--pullStrategy"), Maybe.<MergeManifests.StrategyEnum>of(null), "Strategy to use during a pull (merge or rebase)");
-        public static final OptionsFragment<Options, ?, ImmutableList<String>> manifests = new UnparsedOptionsFragment<Options>("Manifests to merge.", false, 3, 3);
+        public static final OptionsLibrary<Options> o = OptionsLibrary.of();
+        public static final OptionsFragment<Options, MergeManifests.StrategyEnum> pullStrategy = o.oneArg("pullStrategy").transform(o.singleton(null)).transform(o.parseEnum(MergeManifests.StrategyEnum.class)).helpDesc("Strategy to use during a pull (merge or rebase)");
+        public static final OptionsFragment<Options, ImmutableList<String>> manifests = o.unparsed(false).transform(o.minMax(3, 3)).helpDesc("Manifests to merge.");
     }
 
     @Override

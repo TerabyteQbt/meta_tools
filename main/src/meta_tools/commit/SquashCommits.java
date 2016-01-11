@@ -8,9 +8,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import misc1.commons.Maybe;
-import misc1.commons.options.NamedStringSingletonArgumentOptionsFragment;
 import misc1.commons.options.OptionsFragment;
+import misc1.commons.options.OptionsLibrary;
 import misc1.commons.options.OptionsResults;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -46,10 +45,11 @@ public final class SquashCommits extends QbtCommand<SquashCommits.Options> {
 
     @QbtCommandName("squashCommits")
     public static interface Options extends QbtCommandOptions {
+        public static final OptionsLibrary<Options> o = OptionsLibrary.of();
         public static final ConfigOptionsDelegate<Options> config = new ConfigOptionsDelegate<Options>();
         public static final ManifestOptionsDelegate<Options> manifest = new ManifestOptionsDelegate<Options>();
         public static final RepoActionOptionsDelegate<Options> repos = new RepoActionOptionsDelegate<Options>(RepoActionOptionsDelegate.NoArgsBehaviour.ALL);
-        public static final OptionsFragment<Options, ?, String> metaVcs = new NamedStringSingletonArgumentOptionsFragment<Options>(ImmutableList.of("--metaVcs"), Maybe.of("git"), "VCS for meta");
+        public static final OptionsFragment<Options, String> metaVcs = o.oneArg("metaVcs").transform(o.singleton("git")).helpDesc("VCS for meta");
     }
 
     @Override

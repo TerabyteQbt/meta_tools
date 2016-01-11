@@ -15,11 +15,9 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import misc1.commons.Maybe;
 import misc1.commons.concurrent.ctree.ComputationTree;
-import misc1.commons.options.NamedStringListArgumentOptionsFragment;
-import misc1.commons.options.NamedStringSingletonArgumentOptionsFragment;
 import misc1.commons.options.OptionsFragment;
+import misc1.commons.options.OptionsLibrary;
 import misc1.commons.options.OptionsResults;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -50,13 +48,14 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
 
     @QbtCommandName("submanifest")
     public static interface Options extends QbtCommandOptions {
+        public static final OptionsLibrary<Options> o = OptionsLibrary.of();
         public static final ConfigOptionsDelegate<Options> config = new ConfigOptionsDelegate<Options>();
-        public static final OptionsFragment<Options, ?, String> metaVcs = new NamedStringSingletonArgumentOptionsFragment<Options>(ImmutableList.of("--metaVcs"), Maybe.of("git"), "VCS for meta");
+        public static final OptionsFragment<Options, String> metaVcs = o.oneArg("metaVcs").transform(o.singleton("git")).helpDesc("VCS for meta");
         public static final ParallelismOptionsDelegate<Options> parallelism = new ParallelismOptionsDelegate<Options>();
-        public static final OptionsFragment<Options, ?, String> importedFile = new NamedStringSingletonArgumentOptionsFragment<Options>(ImmutableList.of("--importedFile"), Maybe.of("imported-repos"), "File in root of tree to use to track imported repos.");
-        public static final OptionsFragment<Options, ?, ImmutableList<String>> base = new NamedStringListArgumentOptionsFragment<Options>(ImmutableList.of("--base"), "Treat this commit, and any of its ancestors as bases.");
-        public static final OptionsFragment<Options, ?, ImmutableList<String>> lifts = new NamedStringListArgumentOptionsFragment<Options>(ImmutableList.of("--lift"), "Lift this commit.");
-        public static final OptionsFragment<Options, ?, ImmutableList<String>> splits = new NamedStringListArgumentOptionsFragment<Options>(ImmutableList.of("--split"), "Split this commit.");
+        public static final OptionsFragment<Options, String> importedFile = o.oneArg("importedFile").transform(o.singleton("imported-repos")).helpDesc("File in root of tree to use to track imported repos.");
+        public static final OptionsFragment<Options, ImmutableList<String>> base = o.oneArg("base").helpDesc("Treat this commit, and any of its ancestors as bases.");
+        public static final OptionsFragment<Options, ImmutableList<String>> lifts = o.oneArg("lift").helpDesc("Lift this commit.");
+        public static final OptionsFragment<Options, ImmutableList<String>> splits = o.oneArg("split").helpDesc("Split this commit.");
     }
 
     @Override
@@ -99,7 +98,7 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
         }
 
         abstract class Side {
-            public ComputationTree<?> build(final String sideName, OptionsFragment<Options, ?, ImmutableList<String>> commitsOption) {
+            public ComputationTree<?> build(final String sideName, OptionsFragment<Options, ImmutableList<String>> commitsOption) {
                 ImmutableList<Pair<String, VcsVersionDigest>> commitPairs;
                 ImmutableList<VcsVersionDigest> commits;
                 {

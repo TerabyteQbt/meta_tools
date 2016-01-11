@@ -7,15 +7,11 @@ import com.google.common.collect.Maps;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
-import misc1.commons.Maybe;
-import misc1.commons.options.NamedBooleanFlagOptionsFragment;
-import misc1.commons.options.NamedStringListArgumentOptionsFragment;
-import misc1.commons.options.NamedStringSingletonArgumentOptionsFragment;
 import misc1.commons.options.OptionsDelegate;
 import misc1.commons.options.OptionsException;
 import misc1.commons.options.OptionsFragment;
+import misc1.commons.options.OptionsLibrary;
 import misc1.commons.options.OptionsResults;
-import misc1.commons.options.UnparsedOptionsFragment;
 import misc1.commons.ph.ProcessHelper;
 import qbt.HelpTier;
 import qbt.QbtCommand;
@@ -40,19 +36,21 @@ import qbt.vcs.git.GitLocalVcs;
 
 public class Sdiff extends QbtCommand<Sdiff.Options> {
     public static final class CommonOptionsDelegate<O> implements OptionsDelegate {
-        public final OptionsFragment<O, ?, Boolean> override = new NamedBooleanFlagOptionsFragment<O>(ImmutableList.of("--override", "-o"), "Run commands in overrides");
-        public final OptionsFragment<O, ?, ImmutableList<String>> extraArgs = new NamedStringListArgumentOptionsFragment<O>(ImmutableList.of("--extra-arg"), "Extra argument to subcommands (available as positional paramters $1, etc.  in shell)");
+        private final OptionsLibrary<O> o = OptionsLibrary.of();
+        public final OptionsFragment<O, Boolean> override = o.zeroArg("override", "o").transform(o.flag()).helpDesc("Run commands in overrides");
+        public final OptionsFragment<O, ImmutableList<String>> extraArgs = o.oneArg("extra-arg").helpDesc("Extra argument to subcommands (available as positional paramters $1, etc.  in shell)");
     }
 
     @QbtCommandName("sdiff")
     public static interface Options extends QbtCommandOptions {
+        public static final OptionsLibrary<Options> o = OptionsLibrary.of();
         public static final ConfigOptionsDelegate<Options> config = new ConfigOptionsDelegate<Options>();
         public static final CommonOptionsDelegate<Options> commonOptions = new CommonOptionsDelegate<Options>();
-        public static final OptionsFragment<Options, ?, String> type = new NamedStringSingletonArgumentOptionsFragment<Options>(ImmutableList.of("--type"), Maybe.<String>of(null), "Type of diff to show");
-        public static final OptionsFragment<Options, ?, Boolean> log = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("--log"), "Show a log");
-        public static final OptionsFragment<Options, ?, Boolean> diff = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("--diff"), "Show a diff");
-        public static final OptionsFragment<Options, ?, Boolean> logDiff = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("--log-diff"), "Show a log diff");
-        public static final OptionsFragment<Options, ?, ImmutableList<String>> manifests = new UnparsedOptionsFragment<Options>("\"Manifests\" to diff.  Give a commitlike, \".\" for the working tree manifest, and \"SAT\" for working tree manifest overridden with HEAD from satellites", false, 2, 2);
+        public static final OptionsFragment<Options, String> type = o.oneArg("type").transform(o.singleton(null)).helpDesc("Type of diff to show");
+        public static final OptionsFragment<Options, Boolean> log = o.zeroArg("log").transform(o.flag()).helpDesc("Show a log");
+        public static final OptionsFragment<Options, Boolean> diff = o.zeroArg("diff").transform(o.flag()).helpDesc("Show a diff");
+        public static final OptionsFragment<Options, Boolean> logDiff = o.zeroArg("log-diff").transform(o.flag()).helpDesc("Show a log diff");
+        public static final OptionsFragment<Options, ImmutableList<String>> manifests = o.unparsed(false).transform(o.minMax(2, 2)).helpDesc("\"Manifests\" to diff.  Give a commitlike, \".\" for the working tree manifest, and \"SAT\" for working tree manifest overridden with HEAD from satellites");
     }
 
     @Override

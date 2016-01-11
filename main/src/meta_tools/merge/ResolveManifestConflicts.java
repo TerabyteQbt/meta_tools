@@ -6,11 +6,9 @@ import com.google.common.collect.Sets;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
-import misc1.commons.Maybe;
 import misc1.commons.ds.LazyCollector;
-import misc1.commons.options.NamedBooleanFlagOptionsFragment;
-import misc1.commons.options.NamedEnumSingletonArgumentOptionsFragment;
 import misc1.commons.options.OptionsFragment;
+import misc1.commons.options.OptionsLibrary;
 import misc1.commons.options.OptionsResults;
 import misc1.commons.ph.ProcessHelper;
 import org.apache.commons.lang3.tuple.Pair;
@@ -44,8 +42,9 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
 
     @QbtCommandName("resolveManifestConflicts")
     public static interface Options extends QbtCommandOptions {
-        public static final OptionsFragment<Options, ?, MergeManifests.StrategyEnum> strategy = new NamedEnumSingletonArgumentOptionsFragment<Options, MergeManifests.StrategyEnum>(MergeManifests.StrategyEnum.class, ImmutableList.of("--strategy"), Maybe.<MergeManifests.StrategyEnum>of(null), "\"Strategy\" for [attempting resolution in] satellites");
-        public static final OptionsFragment<Options, ?, Boolean> noDeps = new NamedBooleanFlagOptionsFragment<Options>(ImmutableList.of("--noDeps"), "Don't insist on resolving in dep order");
+        public static final OptionsLibrary<Options> o = OptionsLibrary.of();
+        public static final OptionsFragment<Options, MergeManifests.StrategyEnum> strategy = o.oneArg("strategy").transform(o.singleton(null)).transform(o.parseEnum(MergeManifests.StrategyEnum.class)).helpDesc("\"Strategy\" for [attempting resolution in] satellites");
+        public static final OptionsFragment<Options, Boolean> noDeps = o.zeroArg("noDeps").transform(o.flag()).helpDesc("Don't insist on resolving in dep order");
     }
 
     @Override

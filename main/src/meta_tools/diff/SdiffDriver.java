@@ -4,8 +4,8 @@ import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import misc1.commons.options.OptionsFragment;
+import misc1.commons.options.OptionsLibrary;
 import misc1.commons.options.OptionsResults;
-import misc1.commons.options.UnparsedOptionsFragment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qbt.HelpTier;
@@ -23,11 +23,12 @@ public class SdiffDriver extends QbtCommand<SdiffDriver.Options> {
 
     @QbtCommandName("sdiffDriver")
     public static interface Options extends QbtCommandOptions {
+        public static final OptionsLibrary<Options> o = OptionsLibrary.of();
         public static final ConfigOptionsDelegate<Options> config = new ConfigOptionsDelegate<Options>();
         public static final Sdiff.CommonOptionsDelegate<Options> commonOptions = new Sdiff.CommonOptionsDelegate<Options>();
 
         // path old-file old-hex old-mode new-file new-hex new-mode
-        public static final OptionsFragment<Options, ?, ImmutableList<String>> args = new UnparsedOptionsFragment<Options>("Horrible, git-provided arguments.", true, 7, 7);
+        public static final OptionsFragment<Options, ImmutableList<String>> args = o.unparsed(true).transform(o.minMax(7, 7)).helpDesc("Horrible, git-provided arguments.");
     }
 
     @Override
