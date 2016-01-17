@@ -226,7 +226,7 @@ public final class DevProto extends QbtCommand<DevProto.Options> {
                             }
                             ComputationTree<ImmutableMap<String, DevProtoResult>> strongDepResultsCombined = ComputationTree.map(strongDepResults.build());
 
-                            return ComputationTree.pair(singleResultComputation, strongDepResultsCombined).transform((input) -> new DevProtoResult(input.getLeft(), input.getRight()));
+                            return ComputationTree.tuple(singleResultComputation, strongDepResultsCombined, DevProtoResult::new);
                         }
                     };
 
