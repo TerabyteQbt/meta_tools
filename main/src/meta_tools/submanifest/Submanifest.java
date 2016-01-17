@@ -147,20 +147,18 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
                     computationTrees.put(next, nextTree);
                 }
 
-                ImmutableList.Builder<ComputationTree<ObjectUtils.Null>> b = ImmutableList.builder();
-                for(Pair<String, VcsVersionDigest> commitPair : commitPairs) {
+                return ComputationTree.list(Iterables.transform(commitPairs, (commitPair) -> {
                     final String commitString = commitPair.getLeft();
                     final VcsVersionDigest commit = commitPair.getRight();
                     ComputationTree<VcsVersionDigest> computationTree = computationTrees.get(commit);
                     if(computationTree == null) {
                         computationTree = baseComputationTrees.getUnchecked(commit);
                     }
-                    b.add(computationTree.transform((result) -> {
+                    return computationTree.transform((result) -> {
                         System.out.println(sideName + " " + commitString + " (" + commit.getRawDigest() + ") -> " + result.getRawDigest());
                         return ObjectUtils.NULL;
-                    }));
-                }
-                return ComputationTree.list(b.build());
+                    });
+                }));
             }
 
             protected abstract VcsVersionDigest mapBase(VcsVersionDigest base);
