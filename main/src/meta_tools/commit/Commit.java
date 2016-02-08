@@ -143,7 +143,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
                 private void addCommit(final CommitMaker commitMaker) {
                     commitsBuilder.put(repo, (message) -> {
                         VcsVersionDigest commit = commitMaker.commit(message);
-                        pinnedAccessor.addPin(localRepoAccessor.dir, commit);
+                        config.localPinsRepo.addPin(repo, localRepoAccessor.dir, commit);
                         return commit;
                     });
                 }

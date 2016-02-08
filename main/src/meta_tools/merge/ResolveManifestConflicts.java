@@ -260,8 +260,7 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                                 // Whatever the case, we honor it,
                                 // uninteractively.
                                 VcsVersionDigest result = overrideRepo.getCurrentCommit();
-                                lhsResult.addPin(overrideRepo.getRoot(), result);
-                                rhsResult.addPin(overrideRepo.getRoot(), result);
+                                config.localPinsRepo.addPin(repo, overrideRepo.getRoot(), result);
                                 return new StepResult(ImmutableList.of(Pair.of(repo, result)), false);
                             }
                             catch(RuntimeException e) {
@@ -289,8 +288,8 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                         int exitCode = p.run().exitCode;
                         if(exitCode == 0) {
                             VcsVersionDigest result = overrideRepo.getCurrentCommit();
-                            lhsResult.addPin(overrideRepo.getRoot(), result);
-                            rhsResult.addPin(overrideRepo.getRoot(), result);
+
+                            config.localPinsRepo.addPin(repo, overrideRepo.getRoot(), result);
                             return new StepResult(ImmutableList.of(Pair.of(repo, result)), false);
                         }
                         else {
