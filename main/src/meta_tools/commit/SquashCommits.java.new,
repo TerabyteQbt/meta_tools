@@ -1,0 +1,1 @@
+./meta_tools/main/src/meta_tools/commit/SquashCommits.java mv ./meta_tools/main/src/meta_tools/commit/SquashCommits.java.new ./meta_tools/main/src/meta_tools/commit/SquashCommits.java
