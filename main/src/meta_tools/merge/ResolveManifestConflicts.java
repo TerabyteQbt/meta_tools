@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Sets;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import misc1.commons.ds.LazyCollector;
 import misc1.commons.options.OptionsFragment;
@@ -177,7 +178,7 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
             }
         }
 
-        private VcsVersionDigest requireVersion(QbtManifest manifest, RepoTip repo) {
+        private Optional<VcsVersionDigest> requireVersion(QbtManifest manifest, RepoTip repo) {
             RepoManifest repoManifest = manifest.repos.get(repo);
             if(repoManifest == null) {
                 throw new IllegalArgumentException("Repo " + repo + " is not present in all manifests");
@@ -191,9 +192,20 @@ public class ResolveManifestConflicts extends QbtCommand<ResolveManifestConflict
                 return;
             }
 
-            final VcsVersionDigest lhsVersion = requireVersion(lhs, repo);
-            final VcsVersionDigest mhsVersion = requireVersion(mhs, repo);
-            final VcsVersionDigest rhsVersion = requireVersion(rhs, repo);
+            final Optional<VcsVersionDigest> maybeLhsVersion = requireVersion(lhs, repo);
+            final Optional<VcsVersionDigest> maybeMhsVersion = requireVersion(mhs, repo);
+            final Optional<VcsVersionDigest> maybeRhsVersion = requireVersion(rhs, repo);
+
+            if(!maybeLhsVersion.isPresent() && !maybeMhsVersion.isPresent() && !maybeRhsVersion.isPresent()) {
+                // this is like the checkout case below, only we don't even
+                // have a checkout to do: nothing to do for us and don't even
+                // need to do our deps ourselves.
+                return;
+            }
+
+            VcsVersionDigest lhsVersion = maybeLhsVersion.get();
+            VcsVersionDigest mhsVersion = maybeMhsVersion.get();
+            VcsVersionDigest rhsVersion = maybeRhsVersion.get();
 
             boolean conflicted = !(mhsVersion.equals(lhsVersion) && mhsVersion.equals(rhsVersion));
             if(!conflicted && !require) {

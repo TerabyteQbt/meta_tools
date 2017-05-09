@@ -125,9 +125,9 @@ public final class Commit extends QbtCommand<Commit.Options> {
             final VcsVersionDigest currentRepoVersion = repoRepository.getCurrentCommit();
             LOGGER.debug("[" + repo + "] currentRepoVersion = " + currentRepoVersion);
 
-            final VcsVersionDigest manifestRepoVersion = repoManifest.version;
+            final VcsVersionDigest manifestRepoVersion = repoManifest.version.get();
             LOGGER.debug("[" + repo + "] manifestRepoVersion = " + manifestRepoVersion);
-            final PinnedRepoAccessor pinnedAccessor = config.localPinsRepo.requirePin(repo, repoManifest.version);
+            final PinnedRepoAccessor pinnedAccessor = config.localPinsRepo.requirePin(repo, manifestRepoVersion);
             pinnedAccessor.findCommit(localRepoAccessor.dir);
 
             class CommitMakerMaker {
@@ -172,7 +172,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
                         if(parentRepoManifest == null) {
                             continue;
                         }
-                        expectedParentsBuilder.add(parentRepoManifest.version);
+                        expectedParentsBuilder.add(parentRepoManifest.version.get());
                     }
                     final List<VcsVersionDigest> expectedParents = expectedParentsBuilder.build();
                     LOGGER.debug("[" + repo + "] expectedParents = " + expectedParents);
