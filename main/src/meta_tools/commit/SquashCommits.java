@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import misc1.commons.options.OptionsFragment;
 import misc1.commons.options.OptionsLibrary;
@@ -99,7 +100,11 @@ public final class SquashCommits extends QbtCommand<SquashCommits.Options> {
             for(RepoTip repo : repos) {
                 RepoManifest repoManifest = manifestCurrent.repos.get(repo);
 
-                VcsVersionDigest tip = repoManifest.version;
+                Optional<VcsVersionDigest> maybeTip = repoManifest.___version;
+                if(!maybeTip.isPresent()) {
+                    continue;
+                }
+                VcsVersionDigest tip = maybeTip.get();
                 LOGGER.debug("[" + repo + "] tip = " + tip);
 
                 PinnedRepoAccessor pinnedAccessor = config.localPinsRepo.requirePin(repo, tip);
@@ -127,7 +132,7 @@ public final class SquashCommits extends QbtCommand<SquashCommits.Options> {
                     if(parentRepoManifest == null) {
                         continue;
                     }
-                    VcsVersionDigest newBase = parentRepoManifest.version;
+                    VcsVersionDigest newBase = parentRepoManifest.___version.get();
                     config.localPinsRepo.requirePin(repo, newBase).findCommit(repoDir);
                     boolean covered = false;
                     for(VcsVersionDigest base : bases) {
