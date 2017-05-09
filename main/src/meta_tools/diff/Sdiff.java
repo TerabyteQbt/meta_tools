@@ -7,6 +7,7 @@ import com.google.common.collect.Maps;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 import misc1.commons.options.OptionsDelegate;
 import misc1.commons.options.OptionsException;
 import misc1.commons.options.OptionsFragment;
@@ -79,14 +80,18 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
             for(Map.Entry<RepoTip, RepoManifest> e : base.repos.entrySet()) {
                 RepoTip repo = e.getKey();
                 RepoManifest repoManifest = e.getValue();
-                VcsVersionDigest version = repoManifest.version;
+                Optional<VcsVersionDigest> maybeVersion = repoManifest.___version;
+                if(!maybeVersion.isPresent()) {
+                    continue;
+                }
+                VcsVersionDigest version = maybeVersion.get();
                 LocalRepoAccessor localRepoAccessor = config.localRepoFinder.findLocalRepo(repo);
                 if(localRepoAccessor == null) {
                     continue;
                 }
                 VcsVersionDigest newVersion = localRepoAccessor.vcs.getRepository(localRepoAccessor.dir).getCurrentCommit();
                 if(!newVersion.equals(version)) {
-                    b = b.transform(repo, (repoManifest2) -> (repoManifest2.set(RepoManifest.VERSION, newVersion)));
+                    b = b.transform(repo, (repoManifest2) -> (repoManifest2.set(RepoManifest.VERSION, Optional.of(newVersion))));
                 }
             }
 
@@ -118,6 +123,14 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
         b.put("git.log.add.prefix", "true");
         b.put("git.log.del.command", "echo \"Deleted at $REPO_VERSION:\"; git log -1 $REPO_VERSION");
         b.put("git.log.del.prefix", "true");
+        b.put("git.log.ver.command", "echo \"Versioned at $REPO_VERSION:\"; git log -1 $REPO_VERSION");
+        b.put("git.log.ver.prefix", "true");
+        b.put("git.log.unver.command", "echo \"Unversioned at $REPO_VERSION:\"; git log -1 $REPO_VERSION");
+        b.put("git.log.unver.prefix", "true");
+        b.put("git.log.addunver.command", "echo \"Added unversioned\"");
+        b.put("git.log.addunver.prefix", "true");
+        b.put("git.log.delunver.command", "echo \"Deleted unversioned\"");
+        b.put("git.log.delunver.prefix", "true");
 
         b.put("git.diff.edit.command", "git diff --src-prefix=\"$REPO_NAME/$REPO_TIP/a/\" --dst-prefix=\"$REPO_NAME/$REPO_TIP/b/\" \"$@\" $REPO_VERSION_LHS $REPO_VERSION_RHS");
         b.put("git.diff.edit.prefix", "false");
@@ -125,6 +138,14 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
         b.put("git.diff.add.prefix", "false");
         b.put("git.diff.del.command", "git diff --src-prefix=\"$REPO_NAME/$REPO_TIP/a/\" --dst-prefix=\"$REPO_NAME/$REPO_TIP/b/\" \"$@\" $REPO_VERSION 4b825dc642cb6eb9a060e54bf8d69288fbee4904");
         b.put("git.diff.del.prefix", "false");
+        b.put("git.diff.ver.command", "echo \"Versioned at $REPO_VERSION:\"; git log -1 $REPO_VERSION");
+        b.put("git.diff.ver.prefix", "true");
+        b.put("git.diff.unver.command", "echo \"Unversioned at $REPO_VERSION:\"; git log -1 $REPO_VERSION");
+        b.put("git.diff.unver.prefix", "true");
+        b.put("git.diff.addunver.command", "echo \"Added unversioned\"");
+        b.put("git.diff.addunver.prefix", "true");
+        b.put("git.diff.delunver.command", "echo \"Deleted unversioned\"");
+        b.put("git.diff.delunver.prefix", "true");
 
         b.put("git.logDiff.edit.command", "git log -p --src-prefix=\"$REPO_NAME/$REPO_TIP/a/\" --dst-prefix=\"$REPO_NAME/$REPO_TIP/b/\" --left-right \"$@\" $REPO_VERSION_LHS...$REPO_VERSION_RHS");
         b.put("git.logDiff.edit.prefix", "true");
@@ -132,6 +153,14 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
         b.put("git.logDiff.add.prefix", "true");
         b.put("git.logDiff.del.command", "echo \"Deleted at $REPO_VERSION:\"; git log -1 $REPO_VERSION");
         b.put("git.logDiff.del.prefix", "true");
+        b.put("git.logDiff.ver.command", "echo \"Versioned at $REPO_VERSION:\"; git log -1 $REPO_VERSION");
+        b.put("git.logDiff.ver.prefix", "true");
+        b.put("git.logDiff.unver.command", "echo \"Unversioned at $REPO_VERSION:\"; git log -1 $REPO_VERSION");
+        b.put("git.logDiff.unver.prefix", "true");
+        b.put("git.logDiff.addunver.command", "echo \"Added unversioned\"");
+        b.put("git.logDiff.addunver.prefix", "true");
+        b.put("git.logDiff.delunver.command", "echo \"Deleted unversioned\"");
+        b.put("git.logDiff.delunver.prefix", "true");
 
         DEFAULT_CONFIG = b.build();
     }
@@ -171,25 +200,50 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
         return run(config, workspaceRoot, type, options, Options.commonOptions, lhs, rhs);
     }
 
-    private static final Function<RepoManifest, VcsVersionDigest> REPO_VERSION_FUNCTION = (repoManifest) -> repoManifest.version;
+    private static final Function<RepoManifest, Optional<VcsVersionDigest>> REPO_VERSION_FUNCTION = (repoManifest) -> repoManifest.___version;
 
     public static <O> int run(final QbtConfig config, Path workspaceRoot, final String type, final OptionsResults<? extends O> options, final CommonOptionsDelegate<O> commonsOptions, QbtManifest lhs, QbtManifest rhs) {
         final ImmutableMap<String, String> vcsConfig = resolveConfig(workspaceRoot);
 
-        new MapDiffer<RepoTip, VcsVersionDigest>(Maps.transformValues(lhs.repos, REPO_VERSION_FUNCTION), Maps.transformValues(rhs.repos, REPO_VERSION_FUNCTION), RepoTip.TYPE.COMPARATOR) {
+        new MapDiffer<RepoTip, Optional<VcsVersionDigest>>(Maps.transformValues(lhs.repos, REPO_VERSION_FUNCTION), Maps.transformValues(rhs.repos, REPO_VERSION_FUNCTION), RepoTip.TYPE.COMPARATOR) {
             @Override
-            protected void edit(RepoTip repo, VcsVersionDigest lhs, VcsVersionDigest rhs) {
-                run(repo, "edit", ImmutableMap.of("REPO_VERSION_LHS", lhs, "REPO_VERSION_RHS", rhs));
+            protected void edit(RepoTip repo, Optional<VcsVersionDigest> lhs, Optional<VcsVersionDigest> rhs) {
+                if(lhs.isPresent()) {
+                    if(rhs.isPresent()) {
+                        run(repo, "edit", ImmutableMap.of("REPO_VERSION_LHS", lhs.get(), "REPO_VERSION_RHS", rhs.get()));
+                    }
+                    else {
+                        run(repo, "unver", ImmutableMap.of("REPO_VERSION", lhs.get()));
+                    }
+                }
+                else {
+                    if(rhs.isPresent()) {
+                        run(repo, "ver", ImmutableMap.of("REPO_VERSION", rhs.get()));
+                    }
+                    else {
+                        //  nothing
+                    }
+                }
             }
 
             @Override
-            protected void add(RepoTip repo, VcsVersionDigest value) {
-                run(repo, "add", ImmutableMap.of("REPO_VERSION", value));
+            protected void add(RepoTip repo, Optional<VcsVersionDigest> value) {
+                if(value.isPresent()) {
+                    run(repo, "add", ImmutableMap.of("REPO_VERSION", value.get()));
+                }
+                else {
+                    run(repo, "addunver", ImmutableMap.of());
+                }
             }
 
             @Override
-            protected void del(RepoTip repo, VcsVersionDigest value) {
-                run(repo, "del", ImmutableMap.of("REPO_VERSION", value));
+            protected void del(RepoTip repo, Optional<VcsVersionDigest> value) {
+                if(value.isPresent()) {
+                    run(repo, "del", ImmutableMap.of("REPO_VERSION", value.get()));
+                }
+                else {
+                    run(repo, "delunver", ImmutableMap.of());
+                }
             }
 
             private void run(RepoTip repo, String deltaType, Map<String, VcsVersionDigest> versions) {

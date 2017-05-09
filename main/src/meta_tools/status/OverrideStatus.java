@@ -3,6 +3,7 @@ package meta_tools.status;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import java.util.Collection;
+import java.util.Optional;
 import misc1.commons.options.OptionsFragment;
 import misc1.commons.options.OptionsLibrary;
 import misc1.commons.options.OptionsResults;
@@ -62,7 +63,11 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
             }
 
             LocalVcs vcs = localRepoAccessor.vcs;
-            VcsVersionDigest manifestVersion = repoManifest.version;
+            Optional<VcsVersionDigest> maybeManifestVersion = repoManifest.___version;
+            if(!maybeManifestVersion.isPresent()) {
+                continue;
+            }
+            VcsVersionDigest manifestVersion = maybeManifestVersion.get();
             Repository repoRepository = localRepoAccessor.vcs.getRepository(localRepoAccessor.dir);
             VcsVersionDigest repoVersion = repoRepository.getCurrentCommit();
             config.localPinsRepo.requirePin(repo, manifestVersion).findCommit(localRepoAccessor.dir);
