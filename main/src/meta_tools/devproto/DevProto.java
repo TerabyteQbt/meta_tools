@@ -89,7 +89,7 @@ public final class DevProto extends QbtCommand<DevProto.Options> {
     @Override
     public int run(OptionsResults<? extends Options> options) throws Exception {
         final QbtConfig config = Options.config.getConfig(options);
-        final QbtManifest manifest = Options.manifest.getResult(options).parse();
+        final QbtManifest manifest = Options.manifest.getResult(options).parse(config.manifestParser);
         final Collection<PackageTip> packages = Options.packages.getPackages(config, manifest, options);
         final CumulativeVersionComputerOptionsResult cumulativeVersionComputerOptionsResult = Options.cumulativeVersionComputerOptions.getResults(options);
         final String proto = options.get(Options.proto);

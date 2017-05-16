@@ -22,7 +22,6 @@ import qbt.QbtTempDir;
 import qbt.QbtUtils;
 import qbt.VcsVersionDigest;
 import qbt.config.QbtConfig;
-import qbt.manifest.QbtManifestVersions;
 import qbt.manifest.current.QbtManifest;
 import qbt.manifest.current.RepoManifest;
 import qbt.options.ConfigOptionsDelegate;
@@ -71,10 +70,10 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
 
     private static QbtManifest resolveManifest(Path workspaceRoot, QbtConfig config, String arg) throws IOException {
         if(arg.equals(".")) {
-            return QbtManifestVersions.parse(QbtUtils.readLines(workspaceRoot.resolve("qbt-manifest")));
+            return config.manifestParser.parse(QbtUtils.readLines(workspaceRoot.resolve("qbt-manifest")));
         }
         if(arg.equals("SAT")) {
-            QbtManifest base = QbtManifestVersions.parse(QbtUtils.readLines(workspaceRoot.resolve("qbt-manifest")));
+            QbtManifest base = config.manifestParser.parse(QbtUtils.readLines(workspaceRoot.resolve("qbt-manifest")));
 
             QbtManifest.Builder b = base.builder();
             for(Map.Entry<RepoTip, RepoManifest> e : base.repos.entrySet()) {
@@ -100,7 +99,7 @@ public class Sdiff extends QbtCommand<Sdiff.Options> {
         GitLocalVcs vcs = new GitLocalVcs();
         Repository workspaceRepository = vcs.getRepository(workspaceRoot);
         Iterable<String> lines = vcs.getRepository(workspaceRoot).showFile(workspaceRepository.getUserSpecifiedCommit(arg), "qbt-manifest");
-        return QbtManifestVersions.parse(ImmutableList.copyOf(lines));
+        return config.manifestParser.parse(ImmutableList.copyOf(lines));
     }
 
     private static String checkType(String type, boolean set, String value) {

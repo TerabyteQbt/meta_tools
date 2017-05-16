@@ -31,8 +31,6 @@ import qbt.QbtUtils;
 import qbt.VcsTreeDigest;
 import qbt.VcsVersionDigest;
 import qbt.config.QbtConfig;
-import qbt.manifest.LegacyQbtManifest;
-import qbt.manifest.QbtManifestVersions;
 import qbt.manifest.current.QbtManifest;
 import qbt.options.ConfigOptionsDelegate;
 import qbt.options.ParallelismOptionsDelegate;
@@ -167,7 +165,7 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
 
         ComputationTree<?> liftTree = new Side() {
             private VcsTreeDigest liftTree(VcsTreeDigest tree) {
-                QbtManifest manifest = QbtManifestVersions.parse(ImmutableList.copyOf(metaRepository.showFile(tree, "qbt-manifest")));
+                QbtManifest manifest = config.manifestParser.parse(ImmutableList.copyOf(metaRepository.showFile(tree, "qbt-manifest")));
                 TreeAccessor treeAccessor = metaRepository.getTreeAccessor(tree);
                 byte[] importedBytes = linesToBytes(Ordering.natural().immutableSortedCopy(Iterables.transform(manifest.repos.keySet(), Functions.toStringFunction())));
                 treeAccessor = treeAccessor.replace(importedFile, importedBytes);
@@ -194,18 +192,18 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
 
         ComputationTree<?> splitTree = new Side() {
             private VcsTreeDigest splitTree(final VcsTreeDigest tree) {
-                LegacyQbtManifest<?, ?> manifest = QbtManifestVersions.parseLegacy(ImmutableList.copyOf(metaRepository.showFile(tree, "qbt-manifest")));
+                QbtManifest manifest = config.manifestParser.parse(ImmutableList.copyOf(metaRepository.showFile(tree, "qbt-manifest")));
                 TreeAccessor treeAccessor = metaRepository.getTreeAccessor(tree);
                 byte[] importedBytes = treeAccessor.get(importedFile).rightOrNull();
                 ImmutableSet<RepoTip> keep = ImmutableSet.copyOf(Iterables.transform(Arrays.asList(new String(importedBytes, Charsets.UTF_8).split("\n")), RepoTip.TYPE::parseRequire));
-                LegacyQbtManifest.Builder<?, ?> newManifestBuilder = manifest.builder();
-                for(RepoTip repo : manifest.getRepos()) {
+                QbtManifest.Builder newManifestBuilder = manifest.builder();
+                for(RepoTip repo : manifest.repos.keySet()) {
                     if(!keep.contains(repo)) {
-                        newManifestBuilder = newManifestBuilder.withoutRepo(repo);
+                        newManifestBuilder = newManifestBuilder.without(repo);
                     }
                 }
                 treeAccessor = treeAccessor.remove(importedFile);
-                treeAccessor = treeAccessor.replace("qbt-manifest", linesToBytes(newManifestBuilder.build().deparse()));
+                treeAccessor = treeAccessor.replace("qbt-manifest", linesToBytes(config.manifestParser.deparse(newManifestBuilder.build())));
                 return treeAccessor.getDigest();
             }
 

@@ -50,7 +50,7 @@ public final class OverrideStatus extends QbtCommand<OverrideStatus.Options> {
     @Override
     public int run(OptionsResults<? extends Options> options) throws Exception {
         QbtConfig config = Options.config.getConfig(options);
-        QbtManifest manifest = Options.manifest.getResult(options).parse();
+        QbtManifest manifest = Options.manifest.getResult(options).parse(config.manifestParser);
         Collection<RepoTip> repos = Options.repos.getRepos(config, manifest, options);
         boolean verbose = options.get(Options.verbose);
 
