@@ -5,10 +5,13 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import java.util.List;
 import misc1.commons.concurrent.ctree.ComputationTree;
 import org.apache.commons.lang3.ObjectUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import qbt.VcsTreeDigest;
 import qbt.VcsVersionDigest;
 import qbt.vcs.CommitData;
 import qbt.vcs.Repository;
@@ -72,4 +75,35 @@ public abstract class HistoryRebuilder {
 
     protected abstract VcsVersionDigest mapBase(VcsVersionDigest base);
     protected abstract VcsVersionDigest map(VcsVersionDigest next, CommitData cd, ImmutableList<VcsVersionDigest> parents);
+
+    public static VcsVersionDigest cleanUpAndCommit(Repository repo, CommitData cd) {
+        List<VcsVersionDigest> keptParents = Lists.newArrayList();
+        for(VcsVersionDigest parent : cd.get(CommitData.PARENTS)) {
+            boolean keep = true;
+            for(VcsVersionDigest priorParent : keptParents) {
+                if(repo.isAncestorOf(parent, priorParent)) {
+                    // parent is covered by a parent on its left, drop it
+                    keep = false;
+                    break;
+                }
+            }
+            if(!keep) {
+                continue;
+            }
+            keptParents.add(parent);
+        }
+
+        VcsTreeDigest selfTree = cd.get(CommitData.TREE);
+        if(keptParents.size() == 1) {
+            VcsVersionDigest parent = keptParents.get(0);
+            VcsTreeDigest parentTree = repo.getSubtree(parent, "");
+            if(parentTree.equals(selfTree)) {
+                // only one parent and the same tree, drop ourselves
+                return parent;
+            }
+        }
+
+        cd = cd.set(CommitData.PARENTS, ImmutableList.copyOf(keptParents));
+        return repo.createCommit(cd);
+    }
 }

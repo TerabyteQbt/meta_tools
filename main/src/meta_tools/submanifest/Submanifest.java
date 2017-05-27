@@ -5,11 +5,9 @@ import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.List;
 import meta_tools.utils.HistoryRebuilder;
 import misc1.commons.concurrent.ctree.ComputationTree;
 import misc1.commons.options.OptionsFragment;
@@ -149,36 +147,12 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
 
             @Override
             protected VcsVersionDigest map(VcsVersionDigest next, CommitData cd, ImmutableList<VcsVersionDigest> parents) {
-                List<VcsVersionDigest> keptParents = Lists.newArrayList();
-                for(VcsVersionDigest parent : parents) {
-                    boolean keep = true;
-                    for(VcsVersionDigest priorParent : keptParents) {
-                        if(metaRepository.isAncestorOf(parent, priorParent)) {
-                            // parent is covered by a parent on its left, drop it
-                            keep = false;
-                            break;
-                        }
-                    }
-                    if(!keep) {
-                        continue;
-                    }
-                    keptParents.add(parent);
-                }
-                if(keptParents.isEmpty()) {
+                if(parents.isEmpty()) {
                     throw new IllegalArgumentException("Root commit outside of bases!");
                 }
-                VcsTreeDigest selfTree = splitTree(cd.get(CommitData.TREE));
-                if(keptParents.size() == 1) {
-                    VcsVersionDigest parent = keptParents.get(0);
-                    VcsTreeDigest parentTree = metaRepository.getSubtree(parent, "");
-                    if(parentTree.equals(selfTree)) {
-                        // only one parent and the same tree, drop ourselves
-                        return parent;
-                    }
-                }
-                cd = cd.set(CommitData.TREE, selfTree);
-                cd = cd.set(CommitData.PARENTS, ImmutableList.copyOf(keptParents));
-                return metaRepository.createCommit(cd);
+                cd = cd.transform(CommitData.TREE, this::splitTree);
+
+                return cleanUpAndCommit(metaRepository, cd);
             }
         }.buildMany(options.get(Options.splits));
 
