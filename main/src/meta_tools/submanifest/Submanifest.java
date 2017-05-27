@@ -89,17 +89,16 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
         }
 
         abstract class Side extends HistoryRebuilder {
-            public ComputationTree<?> build(String sideName, OptionsFragment<Options, ImmutableList<String>> commitsOption) {
-                return build(metaRepository, bases, sideName, options.get(commitsOption));
-            }
+            private final String sideName;
 
-            @Override
-            protected void onResult(String label, String commitString, VcsVersionDigest commit, VcsVersionDigest result) {
-                System.out.println(label + " " + commitString + " (" + commit.getRawDigest() + ") -> " + result.getRawDigest());
+            public Side(String sideName) {
+                super(metaRepository, bases, sideName);
+
+                this.sideName = sideName;
             }
         }
 
-        ComputationTree<?> liftTree = new Side() {
+        ComputationTree<?> liftTree = new Side("lift") {
             private VcsTreeDigest liftTree(VcsTreeDigest tree) {
                 QbtManifest manifest = config.manifestParser.parse(ImmutableList.copyOf(metaRepository.showFile(tree, "qbt-manifest")));
                 TreeAccessor treeAccessor = metaRepository.getTreeAccessor(tree);
@@ -124,9 +123,9 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
                 cd = cd.set(CommitData.PARENTS, parents);
                 return metaRepository.createCommit(cd.build());
             }
-        }.build("lift", Options.lifts);
+        }.buildMany(options.get(Options.lifts));
 
-        ComputationTree<?> splitTree = new Side() {
+        ComputationTree<?> splitTree = new Side("split") {
             private VcsTreeDigest splitTree(final VcsTreeDigest tree) {
                 QbtManifest manifest = config.manifestParser.parse(ImmutableList.copyOf(metaRepository.showFile(tree, "qbt-manifest")));
                 TreeAccessor treeAccessor = metaRepository.getTreeAccessor(tree);
@@ -181,7 +180,7 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
                 cd = cd.set(CommitData.PARENTS, ImmutableList.copyOf(keptParents));
                 return metaRepository.createCommit(cd);
             }
-        }.build("split", Options.splits);
+        }.buildMany(options.get(Options.splits));
 
         Options.parallelism.getResult(options, false).runComputationTree(ComputationTree.pair(liftTree, splitTree));
         return 0;
