@@ -1,5 +1,6 @@
 package meta_tools.commit;
 
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -35,6 +36,7 @@ import qbt.tip.RepoTip;
 import qbt.vcs.CommitData;
 import qbt.vcs.CommitLevel;
 import qbt.vcs.Repository;
+import qbt.vcs.TreeAccessor;
 import qbt.vcs.VcsRegistry;
 
 public final class Commit extends QbtCommand<Commit.Options> {
@@ -90,11 +92,10 @@ public final class Commit extends QbtCommand<Commit.Options> {
 
         Path metaDir = QbtUtils.findInMeta("", null);
         final Repository metaRepository = VcsRegistry.getLocalVcs(metaVcs).getRepository(metaDir);
-        if(!metaRepository.isClean()) {
-            throw new IllegalArgumentException("Meta is dirty!");
-        }
 
-        QbtManifest manifest = config.manifestParser.parse(QbtUtils.readLines(Paths.get("qbt-manifest")));
+        TreeAccessor stagedTree = metaRepository.getTreeAccessor(metaRepository.getIndexTree());
+        QbtManifest stagedManifest = config.manifestParser.parse(ImmutableList.copyOf(stagedTree.requireFileLines("qbt-manifest")));
+        QbtManifest wtManifest = config.manifestParser.parse(QbtUtils.readLines(Paths.get("qbt-manifest")));
         ImmutableList.Builder<QbtManifest> parentManifestsBuilder = ImmutableList.builder();
         for(VcsVersionDigest metaParent : metaRepository.getCommitData(metaRepository.getCurrentCommit()).get(CommitData.PARENTS)) {
             parentManifestsBuilder.add(config.manifestParser.parse(ImmutableList.copyOf(metaRepository.showFile(metaParent, "qbt-manifest"))));
@@ -104,9 +105,12 @@ public final class Commit extends QbtCommand<Commit.Options> {
         final ImmutableMap.Builder<RepoTip, CommitMaker> commitsBuilder = ImmutableMap.builder();
         final ImmutableList.Builder<String> messagePrompt = ImmutableList.builder();
         boolean fail = false;
-        for(final Map.Entry<RepoTip, RepoManifest> repoEntry : manifest.repos.entrySet()) {
-            RepoTip repo = repoEntry.getKey();
-            RepoManifest repoManifest = repoEntry.getValue();
+        ImmutableSet.Builder<RepoTip> allRepos = ImmutableSet.builder();
+        allRepos.addAll(stagedManifest.repos.keySet());
+        allRepos.addAll(wtManifest.repos.keySet());
+        for(final RepoTip repo : allRepos.build()) {
+            RepoManifest stagedRepoManifest = stagedManifest.repos.get(repo);
+            RepoManifest wtRepoManifest = wtManifest.repos.get(repo);
 
             final LocalRepoAccessor localRepoAccessor = config.localRepoFinder.findLocalRepo(repo);
             if(localRepoAccessor == null) {
@@ -116,18 +120,28 @@ public final class Commit extends QbtCommand<Commit.Options> {
             final VcsVersionDigest currentRepoVersion = repoRepository.getCurrentCommit();
             LOGGER.debug("[" + repo + "] currentRepoVersion = " + currentRepoVersion);
 
-            final VcsVersionDigest manifestRepoVersion = repoManifest.version.get();
-            LOGGER.debug("[" + repo + "] manifestRepoVersion = " + manifestRepoVersion);
-            final PinnedRepoAccessor pinnedAccessor = config.localPinsRepo.requirePin(repo, manifestRepoVersion);
+            final VcsVersionDigest stagedManifestRepoVersion = stagedRepoManifest == null ? null : stagedRepoManifest.version.get();
+            final VcsVersionDigest wtManifestRepoVersion = wtRepoManifest == null ? null : wtRepoManifest.version.get();
+            LOGGER.debug("[" + repo + "] stagedManifestRepoVersion = " + stagedManifestRepoVersion);
+            LOGGER.debug("[" + repo + "] wtManifestRepoVersion = " + wtManifestRepoVersion);
+
+            if(stagedManifestRepoVersion != null && !stagedManifestRepoVersion.equals(currentRepoVersion)) {
+                LOGGER.error("[" + repo + "] Current state unintelligible: HEAD does not match staged manifest");
+                fail = true;
+                continue;
+            }
+
+            if(wtManifestRepoVersion != null && !wtManifestRepoVersion.equals(currentRepoVersion)) {
+                LOGGER.error("[" + repo + "] Current state unintelligible: HEAD does not match working tree manifest");
+                fail = true;
+                continue;
+            }
+
+            final PinnedRepoAccessor pinnedAccessor = config.localPinsRepo.requirePin(repo, currentRepoVersion);
             pinnedAccessor.findCommit(localRepoAccessor.dir);
 
             class CommitMakerMaker {
                 public boolean make() {
-                    if(!manifestRepoVersion.equals(currentRepoVersion)) {
-                        LOGGER.error("[" + repo + "] Current state unintelligible: HEAD does not match manifest");
-                        return true;
-                    }
-
                     return amend ? makeAmend() : makeNonAmend();
                 }
 
@@ -268,14 +282,18 @@ public final class Commit extends QbtCommand<Commit.Options> {
                 }
             }
         }
-        QbtManifest.Builder newManifest = manifest.builder();
+        QbtManifest.Builder newStagedManifest = stagedManifest.builder();
+        QbtManifest.Builder newWtManifest = wtManifest.builder();
         for(Map.Entry<RepoTip, CommitMaker> e : commitsBuilder.build().entrySet()) {
             RepoTip repo = e.getKey();
             VcsVersionDigest repoVersion = e.getValue().commit(message);
-            newManifest = newManifest.transform(repo, (rmb) -> rmb.set(RepoManifest.VERSION, Optional.of(repoVersion)));
+            Function<Optional<RepoManifest.Builder>, Optional<RepoManifest.Builder>> f = (mrmb) -> mrmb.map((rmb) -> rmb.set(RepoManifest.VERSION, Optional.of(repoVersion)));
+            newStagedManifest = newStagedManifest.transformOptional(repo, f);
+            newWtManifest = newWtManifest.transformOptional(repo, f);
         }
-        QbtUtils.writeLines(Paths.get("qbt-manifest"), config.manifestParser.deparse(newManifest.build()));
-        VcsVersionDigest commit = metaRepository.commit(amend, message, CommitLevel.MODIFIED);
+        QbtUtils.writeLines(Paths.get("qbt-manifest"), config.manifestParser.deparse(newWtManifest.build()));
+        metaRepository.setIndexTree(stagedTree.replace("qbt-manifest", config.manifestParser.deparse(newStagedManifest.build())).getDigest());
+        VcsVersionDigest commit = metaRepository.commit(amend, message, commitLevel);
         LOGGER.info("[meta] Committed" + (amend ? " (amend)" : "") + " " + commit.getRawDigest());
         return 0;
     }
