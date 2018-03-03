@@ -7,7 +7,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -30,9 +29,6 @@ import qbt.config.QbtConfig;
 import qbt.manifest.current.QbtManifest;
 import qbt.manifest.current.RepoManifest;
 import qbt.options.ConfigOptionsDelegate;
-import qbt.options.ManifestOptionsDelegate;
-import qbt.options.ManifestOptionsResult;
-import qbt.options.RepoActionOptionsDelegate;
 import qbt.repo.LocalRepoAccessor;
 import qbt.repo.PinnedRepoAccessor;
 import qbt.tip.RepoTip;
@@ -48,8 +44,6 @@ public final class Commit extends QbtCommand<Commit.Options> {
     public static interface Options extends QbtCommandOptions {
         public static final OptionsLibrary<Options> o = OptionsLibrary.of();
         public static final ConfigOptionsDelegate<Options> config = new ConfigOptionsDelegate<Options>();
-        public static final ManifestOptionsDelegate<Options> manifest = new ManifestOptionsDelegate<Options>();
-        public static final RepoActionOptionsDelegate<Options> repos = new RepoActionOptionsDelegate<Options>(RepoActionOptionsDelegate.NoArgsBehaviour.OVERRIDES);
         public static final OptionsFragment<Options, Boolean> amend = o.zeroArg("amend").transform(o.flag()).helpDesc("Amend existing commit instead of making a new one");
         public static final OptionsFragment<Options, String> metaVcs = o.oneArg("metaVcs").transform(o.singleton("git")).helpDesc("VCS for meta");
         public static final OptionsFragment<Options, String> message = o.oneArg("message", "m").transform(o.singleton(null)).helpDesc("Commit message");
@@ -79,9 +73,6 @@ public final class Commit extends QbtCommand<Commit.Options> {
     @Override
     public int run(OptionsResults<? extends Options> options) throws Exception {
         QbtConfig config = Options.config.getConfig(options);
-        final ManifestOptionsResult manifestResult = Options.manifest.getResult(options);
-        QbtManifest manifest = manifestResult.parse(config.manifestParser);
-        Collection<RepoTip> repos = Options.repos.getRepos(config, manifest, options);
         final CommitLevel commitLevel;
         {
             CommitLevel commitLevelTemp = CommitLevel.STAGED;
@@ -103,6 +94,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
             throw new IllegalArgumentException("Meta is dirty!");
         }
 
+        QbtManifest manifest = config.manifestParser.parse(QbtUtils.readLines(Paths.get("qbt-manifest")));
         ImmutableList.Builder<QbtManifest> parentManifestsBuilder = ImmutableList.builder();
         for(VcsVersionDigest metaParent : metaRepository.getCommitData(metaRepository.getCurrentCommit()).get(CommitData.PARENTS)) {
             parentManifestsBuilder.add(config.manifestParser.parse(ImmutableList.copyOf(metaRepository.showFile(metaParent, "qbt-manifest"))));
@@ -112,8 +104,9 @@ public final class Commit extends QbtCommand<Commit.Options> {
         final ImmutableMap.Builder<RepoTip, CommitMaker> commitsBuilder = ImmutableMap.builder();
         final ImmutableList.Builder<String> messagePrompt = ImmutableList.builder();
         boolean fail = false;
-        for(final RepoTip repo : repos) {
-            RepoManifest repoManifest = manifest.repos.get(repo);
+        for(final Map.Entry<RepoTip, RepoManifest> repoEntry : manifest.repos.entrySet()) {
+            RepoTip repo = repoEntry.getKey();
+            RepoManifest repoManifest = repoEntry.getValue();
 
             final LocalRepoAccessor localRepoAccessor = config.localRepoFinder.findLocalRepo(repo);
             if(localRepoAccessor == null) {
@@ -281,7 +274,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
             VcsVersionDigest repoVersion = e.getValue().commit(message);
             newManifest = newManifest.transform(repo, (rmb) -> rmb.set(RepoManifest.VERSION, Optional.of(repoVersion)));
         }
-        manifestResult.deparse(config.manifestParser, newManifest.build());
+        QbtUtils.writeLines(Paths.get("qbt-manifest"), config.manifestParser.deparse(newManifest.build()));
         VcsVersionDigest commit = metaRepository.commit(amend, message, CommitLevel.MODIFIED);
         LOGGER.info("[meta] Committed" + (amend ? " (amend)" : "") + " " + commit.getRawDigest());
         return 0;
