@@ -95,7 +95,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
 
         TreeAccessor stagedTree = metaRepository.getTreeAccessor(metaRepository.getIndexTree());
         QbtManifest stagedManifest = config.manifestParser.parse(ImmutableList.copyOf(stagedTree.requireFileLines("qbt-manifest")));
-        QbtManifest wtManifest = config.manifestParser.parse(QbtUtils.readLines(Paths.get("qbt-manifest")));
+        QbtManifest wtManifest = config.manifestParser.parse(QbtUtils.readLines(metaDir.resolve("qbt-manifest")));
         ImmutableList.Builder<QbtManifest> parentManifestsBuilder = ImmutableList.builder();
         for(VcsVersionDigest metaParent : metaRepository.getCommitData(metaRepository.getCurrentCommit()).get(CommitData.PARENTS)) {
             parentManifestsBuilder.add(config.manifestParser.parse(ImmutableList.copyOf(metaRepository.showFile(metaParent, "qbt-manifest"))));
@@ -291,7 +291,7 @@ public final class Commit extends QbtCommand<Commit.Options> {
             newStagedManifest = newStagedManifest.transformOptional(repo, f);
             newWtManifest = newWtManifest.transformOptional(repo, f);
         }
-        QbtUtils.writeLines(Paths.get("qbt-manifest"), config.manifestParser.deparse(newWtManifest.build()));
+        QbtUtils.writeLines(metaDir.resolve("qbt-manifest"), config.manifestParser.deparse(newWtManifest.build()));
         metaRepository.setIndexTree(stagedTree.replace("qbt-manifest", config.manifestParser.deparse(newStagedManifest.build())).getDigest());
         VcsVersionDigest commit = metaRepository.commit(amend, message, commitLevel);
         LOGGER.info("[meta] Committed" + (amend ? " (amend)" : "") + " " + commit.getRawDigest());
