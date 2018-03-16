@@ -100,7 +100,7 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
             private VcsTreeDigest liftTree(VcsTreeDigest tree) {
                 QbtManifest manifest = config.manifestParser.parse(ImmutableList.copyOf(metaRepository.showFile(tree, "qbt-manifest")));
                 TreeAccessor treeAccessor = metaRepository.getTreeAccessor(tree);
-                byte[] importedBytes = linesToBytes(Ordering.natural().immutableSortedCopy(Iterables.transform(manifest.repos.keySet(), Functions.toStringFunction())));
+                byte[] importedBytes = QbtUtils.linesToBytes(Ordering.natural().immutableSortedCopy(Iterables.transform(manifest.repos.keySet(), Functions.toStringFunction())));
                 treeAccessor = treeAccessor.replace(importedFile, importedBytes);
                 return treeAccessor.getDigest();
             }
@@ -136,7 +136,7 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
                     }
                 }
                 treeAccessor = treeAccessor.remove(importedFile);
-                treeAccessor = treeAccessor.replace("qbt-manifest", linesToBytes(config.manifestParser.deparse(newManifestBuilder.build())));
+                treeAccessor = treeAccessor.replace("qbt-manifest", QbtUtils.linesToBytes(config.manifestParser.deparse(newManifestBuilder.build())));
                 return treeAccessor.getDigest();
             }
 
@@ -158,14 +158,5 @@ public class Submanifest extends QbtCommand<Submanifest.Options> {
 
         Options.parallelism.getResult(options, false).runComputationTree(ComputationTree.pair(liftTree, splitTree));
         return 0;
-    }
-
-    private static byte[] linesToBytes(Iterable<String> lines) {
-        StringBuilder sb = new StringBuilder();
-        for(String line : lines) {
-            sb.append(line);
-            sb.append('\n');
-        }
-        return sb.toString().getBytes(Charsets.UTF_8);
     }
 }
