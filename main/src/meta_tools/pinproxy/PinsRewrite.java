@@ -1,14 +1,16 @@
 package meta_tools.pinproxy;
 
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.Optional;
 import misc1.commons.concurrent.ctree.ComputationTree;
 import misc1.commons.ph.ProcessHelper;
+import org.apache.commons.lang3.ObjectUtils;
 import qbt.VcsVersionDigest;
 import qbt.config.LocalPinsRepo;
 import qbt.mains.FetchPins;
@@ -16,8 +18,9 @@ import qbt.mains.PushPins;
 import qbt.manifest.QbtManifestParser;
 import qbt.manifest.current.CurrentQbtManifestParser;
 import qbt.manifest.current.QbtManifest;
+import qbt.manifest.current.RepoManifest;
 import qbt.remote.QbtRemote;
-import qbt.vcs.git.GitUtils;
+import qbt.tip.RepoTip;
 
 public class PinsRewrite implements PinProxyRewrite {
     private final Path workspaceRoot;
@@ -36,9 +39,14 @@ public class PinsRewrite implements PinProxyRewrite {
         this.manifestParser = manifestParser;
     }
 
-    private final LoadingCache<VcsVersionDigest, ComputationTree<VcsVersionDigest>> localToRemote = CacheBuilder.newBuilder().build(new CacheLoader<VcsVersionDigest, ComputationTree<VcsVersionDigest>>() {
-        @Override
-        public ComputationTree<VcsVersionDigest> load(VcsVersionDigest localCommit) {
+    interface CommonCallback {
+        void run(RepoTip repo, Iterable<VcsVersionDigest> versions);
+    }
+
+    private ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> common(Iterable<VcsVersionDigest> commits, CommonCallback cb) {
+        ImmutableMap.Builder<VcsVersionDigest, VcsVersionDigest> ret = ImmutableMap.builder();
+        ImmutableMultimap.Builder<RepoTip, VcsVersionDigest> repoVersions = ImmutableMultimap.builder();
+        for(VcsVersionDigest commit : ImmutableSet.copyOf(commits)) {
             // Ugh, this is a mess.  pre-receive hooks run in a "quarantine
             // env" where incoming objects aren't actually in the repo yet and
             // are only visible to `git` commands due to insane GIT_ env
@@ -50,39 +58,36 @@ public class PinsRewrite implements PinProxyRewrite {
             // longer term for monoRepo proxy we're going to have other
             // problems (the entire inline/extract process will have to
             // similarly operate w/o wiping GIT_ for any git commands in meta).
-            Iterable<String> lines = ProcessHelper.of(workspaceRoot, "git", "show", localCommit.getRawDigest() + ":qbt-manifest").run().requireSuccess().stdout;
+            Iterable<String> lines = ProcessHelper.of(workspaceRoot, "git", "show", commit.getRawDigest() + ":qbt-manifest").run().requireSuccess().stdout;
 
             QbtManifest manifest = manifestParser.parse(ImmutableList.copyOf(lines));
-            ComputationTree ct = ComputationTree.constant(localCommit);
-            return ct.combineLeft(PushPins.pushCt(localPinsRepo, qbtRemote, manifest, manifest.repos.keySet()));
+            for(Map.Entry<RepoTip, RepoManifest> e : manifest.repos.entrySet()) {
+                RepoTip repo = e.getKey();
+                RepoManifest repoManifest = e.getValue();
+                Optional<VcsVersionDigest> maybeVersion = repoManifest.version;
+                if(maybeVersion.isPresent()) {
+                    repoVersions.put(repo, maybeVersion.get());
+                }
+            }
+
+            ret.put(commit, commit);
         }
-    });
+        ComputationTree runCt = ComputationTree.list(Iterables.transform(repoVersions.build().asMap().entrySet(), (e) -> {
+            return ComputationTree.ofSupplier(() -> {
+                cb.run(e.getKey(), e.getValue());
+                return ObjectUtils.NULL;
+            });
+        }));
+        return ComputationTree.constant(ret.build()).combineLeft(runCt);
+    }
 
     @Override
     public ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> localToRemote(Iterable<VcsVersionDigest> localCommits) {
-        ImmutableMap.Builder<VcsVersionDigest, ComputationTree<VcsVersionDigest>> b = ImmutableMap.builder();
-        for(VcsVersionDigest localCommit : ImmutableSet.copyOf(localCommits)) {
-            b.put(localCommit, localToRemote.getUnchecked(localCommit));
-        }
-        return ComputationTree.map(b.build());
+        return common(localCommits, (repo, versions) -> PushPins.push(localPinsRepo, qbtRemote, repo, versions));
     }
-
-    private final LoadingCache<VcsVersionDigest, ComputationTree<VcsVersionDigest>> remoteToLocal = CacheBuilder.newBuilder().build(new CacheLoader<VcsVersionDigest, ComputationTree<VcsVersionDigest>>() {
-        @Override
-        public ComputationTree<VcsVersionDigest> load(VcsVersionDigest remoteCommit) {
-            Iterable<String> lines = GitUtils.showFile(workspaceRoot, remoteCommit, "qbt-manifest");
-            QbtManifest manifest = manifestParser.parse(ImmutableList.copyOf(lines));
-            ComputationTree ct = ComputationTree.constant(remoteCommit);
-            return ct.combineLeft(FetchPins.fetchCt(localPinsRepo, qbtRemote, manifest, manifest.repos.keySet()));
-        }
-    });
 
     @Override
     public ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> remoteToLocal(Iterable<VcsVersionDigest> remoteCommits) {
-        ImmutableMap.Builder<VcsVersionDigest, ComputationTree<VcsVersionDigest>> b = ImmutableMap.builder();
-        for(VcsVersionDigest remoteCommit : ImmutableSet.copyOf(remoteCommits)) {
-            b.put(remoteCommit, remoteToLocal.getUnchecked(remoteCommit));
-        }
-        return ComputationTree.map(b.build());
+        return common(remoteCommits, (repo, versions) -> FetchPins.fetch(localPinsRepo, qbtRemote, repo, versions));
     }
 }
