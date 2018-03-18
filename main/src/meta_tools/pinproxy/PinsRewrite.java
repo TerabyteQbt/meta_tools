@@ -13,6 +13,8 @@ import java.util.Set;
 import misc1.commons.concurrent.ctree.ComputationTree;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import qbt.VcsVersionDigest;
 import qbt.config.LocalPinsRepo;
 import qbt.mains.FetchPins;
@@ -26,6 +28,8 @@ import qbt.tip.RepoTip;
 import qbt.vcs.git.GitUtils;
 
 public class PinsRewrite implements PinProxyRewrite {
+    private static final Logger LOGGER = LoggerFactory.getLogger(PinsRewrite.class);
+
     private final Path workspaceRoot;
     private final LocalPinsRepo localPinsRepo;
     private final QbtRemote qbtRemote;
@@ -53,8 +57,15 @@ public class PinsRewrite implements PinProxyRewrite {
                 continue;
             }
 
-            Iterable<String> lines = GitUtils.showFile(workspaceRoot, commit, "qbt-manifest");
-            QbtManifest manifest = manifestParser.parse(ImmutableList.copyOf(lines));
+            QbtManifest manifest;
+            try {
+                Iterable<String> lines = GitUtils.showFile(workspaceRoot, commit, "qbt-manifest");
+                manifest = manifestParser.parse(ImmutableList.copyOf(lines));
+            }
+            catch(RuntimeException e) {
+                LOGGER.warn("No valid manifest found in " + commit.getRawDigest() + ", ignoring...");
+                continue;
+            }
 
             for(Map.Entry<RepoTip, RepoManifest> e : manifest.repos.entrySet()) {
                 RepoTip repo = e.getKey();
