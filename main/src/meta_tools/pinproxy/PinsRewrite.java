@@ -109,7 +109,7 @@ public class PinsRewrite implements PinProxyRewrite {
     }
 
     @Override
-    public ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> remoteToLocal(Iterable<VcsVersionDigest> commits) {
+    public ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> remoteToLocal(Iterable<VcsVersionDigest> oldCommits, Iterable<VcsVersionDigest> commits) {
         ImmutableMap.Builder<VcsVersionDigest, VcsVersionDigest> ret = ImmutableMap.builder();
         for(VcsVersionDigest commit : ImmutableSet.copyOf(commits)) {
             ret.put(commit, commit);

@@ -7,5 +7,5 @@ import qbt.VcsVersionDigest;
 
 public interface PinProxyRewrite {
     ComputationTree<Pair<VcsVersionDigest, VcsVersionDigest>> localToRemote(Pair<VcsVersionDigest, VcsVersionDigest> localCommits);
-    ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> remoteToLocal(Iterable<VcsVersionDigest> remoteCommits);
+    ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> remoteToLocal(Iterable<VcsVersionDigest> oldRemoteCommits, Iterable<VcsVersionDigest> remoteCommits);
 }

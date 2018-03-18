@@ -58,7 +58,11 @@ public class UpdateHook extends QbtCommand<UpdateHook.Options> {
         ImmutableList.Builder<String> cmd = ImmutableList.builder();
         cmd.add("git", "push", config.gitRemote);
         cmd.add("--force-with-lease=refs/heads/" + head + ":" + oldRemoteCommit.getRawDigest());
-        cmd.add(newRemoteCommit.getRawDigest() + ":refs/heads/" + head);
-        return ProcessHelper.of(Paths.get("."), cmd.build()).inheritIO().run().exitCode;
+        cmd.add(newRemoteCommit.getRawDigest() + ":" + PinProxyUtils.HEAD_PREFIX + head);
+        ProcessHelper.of(Paths.get("."), cmd.build()).inheritIO().run().requireSuccess();
+
+        ProcessHelper.of(Paths.get("."), "git", "update-ref", PinProxyUtils.REMOTE_PREFIX + head, newRemoteCommit.getRawDigest().toString()).run().requireSuccess();
+
+        return 0;
     }
 }
