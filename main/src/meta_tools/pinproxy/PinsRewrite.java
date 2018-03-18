@@ -114,6 +114,6 @@ public class PinsRewrite implements PinProxyRewrite {
         for(VcsVersionDigest commit : ImmutableSet.copyOf(commits)) {
             ret.put(commit, commit);
         }
-        return common(ret.build(), commits, (repo, versions) -> FetchPins.fetch(localPinsRepo, qbtRemote, repo, versions));
+        return common(ret.build(), commits, (repo, versions) -> FetchPins.fetch(localPinsRepo, qbtRemote, repo, versions, true));
     }
 }
