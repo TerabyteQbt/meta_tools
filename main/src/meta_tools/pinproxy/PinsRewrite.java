@@ -110,10 +110,16 @@ public class PinsRewrite implements PinProxyRewrite {
 
     @Override
     public ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> remoteToLocal(Iterable<VcsVersionDigest> oldCommits, Iterable<VcsVersionDigest> commits) {
+        ImmutableMultimap<RepoTip, VcsVersionDigest> oldRepoVersions = compileRepoVersions(oldCommits);
+
         ImmutableMap.Builder<VcsVersionDigest, VcsVersionDigest> ret = ImmutableMap.builder();
         for(VcsVersionDigest commit : ImmutableSet.copyOf(commits)) {
             ret.put(commit, commit);
         }
-        return common(ret.build(), commits, (repo, versions) -> FetchPins.fetch(localPinsRepo, qbtRemote, repo, versions, true));
+        return common(ret.build(), commits, (repo, versions) -> {
+            Set<VcsVersionDigest> fetch = Sets.newHashSet(versions);
+            fetch.removeAll(oldRepoVersions.get(repo));
+            FetchPins.fetch(localPinsRepo, qbtRemote, repo, fetch, true);
+        });
     }
 }
