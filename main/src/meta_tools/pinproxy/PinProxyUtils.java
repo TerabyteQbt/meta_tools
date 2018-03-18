@@ -40,12 +40,13 @@ public final class PinProxyUtils {
         ProcessHelper.of(dir, cmd).inheritIO().run().requireSuccess();
     }
 
-    private static final Pattern REF_LINE_PATTERN = Pattern.compile("^([0-9a-f]{40}) refs/(.*)$");
+    private static final Pattern REF_LINE_PATTERN = Pattern.compile("^([0-9a-f]{40}) (.*)$");
     public static void fetch(Path root, PinProxyConfig config) {
         String gitRemote = config.gitRemote;
         PinProxyRewrite rewrite = config.rewrite;
 
-        runSimple(root, "git", "fetch", gitRemote, "-p", "+refs/*:refs/*");
+        String wildcard = config.unstripRef("*");
+        runSimple(root, "git", "fetch", "--no-tags", gitRemote, "-p", "+" + wildcard + ":" + wildcard);
 
         ImmutableList<String> refLines = ProcessHelper.of(root, "git", "show-ref").inheritError().run().requireSuccess().stdout;
 
@@ -56,7 +57,7 @@ public final class PinProxyUtils {
             if(!m.matches()) {
                 throw new IllegalArgumentException("Bad git show-ref line: " + refLine);
             }
-            String ref = m.group(2);
+            String ref = config.stripRef(m.group(2));
             VcsVersionDigest remoteCommit = new VcsVersionDigest(QbtHashUtils.parse(m.group(1)));
             refs.add(Pair.of(ref, remoteCommit));
             allRemoteCommits.add(remoteCommit);
@@ -74,7 +75,7 @@ public final class PinProxyUtils {
             if(localCommit == null) {
                 throw new IllegalStateException();
             }
-            runSimple(root, "git", "update-ref", "refs/" + ref, localCommit.getRawDigest().toString());
+            runSimple(root, "git", "update-ref", config.unstripRef(ref), localCommit.getRawDigest().toString());
         }
     }
 

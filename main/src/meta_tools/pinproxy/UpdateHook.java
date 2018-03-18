@@ -41,16 +41,12 @@ public class UpdateHook extends QbtCommand<UpdateHook.Options> {
 
     @Override
     public int run(final OptionsResults<? extends Options> options) throws Exception {
+        PinProxyConfig config = PinProxyConfig.parse(Paths.get("./pin-proxy-config"));
+
         ImmutableList<String> args = options.get(Options.args);
-        String ref = args.get(0);
-        if(!ref.startsWith("refs/")) {
-            throw new IllegalArgumentException("Bad ref: " + ref);
-        }
-        ref = ref.substring(5);
+        String ref = config.stripRef(args.get(0));
         VcsVersionDigest oldLocalCommit = new VcsVersionDigest(QbtHashUtils.parse(args.get(1)));
         VcsVersionDigest newLocalCommit = new VcsVersionDigest(QbtHashUtils.parse(args.get(2)));
-
-        PinProxyConfig config = PinProxyConfig.parse(Paths.get("./pin-proxy-config"));
 
         ComputationTree<Pair<VcsVersionDigest, VcsVersionDigest>> remoteCommitsCt = config.rewrite.localToRemote(Pair.of(oldLocalCommit, newLocalCommit));
 
@@ -61,8 +57,8 @@ public class UpdateHook extends QbtCommand<UpdateHook.Options> {
 
         ImmutableList.Builder<String> cmd = ImmutableList.builder();
         cmd.add("git", "push", config.gitRemote);
-        cmd.add("--force-with-lease=refs/" + ref + ":" + oldRemoteCommit.getRawDigest());
-        cmd.add(newRemoteCommit.getRawDigest() + ":refs/" + ref);
+        cmd.add("--force-with-lease=" + config.unstripRef(ref) + ":" + oldRemoteCommit.getRawDigest());
+        cmd.add(newRemoteCommit.getRawDigest() + ":" + config.unstripRef(ref));
         return ProcessHelper.of(Paths.get("."), cmd.build()).inheritIO().run().exitCode;
     }
 }
