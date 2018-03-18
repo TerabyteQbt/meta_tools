@@ -1,0 +1,67 @@
+package meta_tools.pinproxy;
+
+import com.google.common.collect.ImmutableList;
+import java.io.IOException;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import misc1.commons.ExceptionUtils;
+import misc1.commons.concurrent.WorkPool;
+import misc1.commons.concurrent.ctree.ComputationTree;
+import misc1.commons.ph.ProcessHelper;
+import org.apache.commons.lang3.ObjectUtils;
+import qbt.QbtHashUtils;
+import qbt.VcsVersionDigest;
+import qbt.options.ParallelismOptionsResult;
+
+public final class PinProxyUtils {
+    private PinProxyUtils() {
+        // no
+    }
+
+    public static <T> T locked(Path root, Supplier<T> c) {
+        try(FileChannel fc = FileChannel.open(root.resolve("qbt-pin-proxy-lock"), StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
+            try(FileLock lock = fc.lock(0, Long.MAX_VALUE, false)) {
+                return c.get();
+            }
+        }
+        catch(IOException e) {
+            throw ExceptionUtils.commute(e);
+        }
+    }
+
+    private static void runSimple(Path dir, String... cmd) {
+        ProcessHelper.of(dir, cmd).inheritIO().run().requireSuccess();
+    }
+
+    private static final Pattern REF_LINE_PATTERN = Pattern.compile("^([0-9a-f]{40}) refs/(.*)$");
+    public static void fetch(Path root, PinProxyConfig config) {
+        String gitRemote = config.gitRemote;
+        PinProxyRewrite rewrite = config.rewrite;
+
+        runSimple(root, "git", "fetch", gitRemote, "-p", "+refs/*:refs/*");
+
+        ImmutableList<String> refLines = ProcessHelper.of(root, "git", "show-ref").inheritError().run().requireSuccess().stdout;
+        ComputationTree<?> ct = ComputationTree.constant();
+        for(String refLine : refLines) {
+            Matcher m = REF_LINE_PATTERN.matcher(refLine);
+            if(!m.matches()) {
+                throw new IllegalArgumentException("Bad git show-ref line: " + refLine);
+            }
+            String ref = m.group(2);
+            VcsVersionDigest remoteCommit = new VcsVersionDigest(QbtHashUtils.parse(m.group(1)));
+            ComputationTree<VcsVersionDigest> localCommitCt = rewrite.remoteToLocal(remoteCommit);
+            ct = ct.combineLeft(localCommitCt.transform((localCommit) -> {
+                runSimple(root, "git", "update-ref", "refs/" + ref, localCommit.getRawDigest().toString());
+                return ObjectUtils.NULL;
+            }));
+        }
+
+        ParallelismOptionsResult por = WorkPool::defaultParallelism;
+        por.runComputationTree(ct);
+    }
+}
