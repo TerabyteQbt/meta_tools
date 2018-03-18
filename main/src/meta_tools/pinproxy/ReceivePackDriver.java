@@ -35,6 +35,11 @@ public class ReceivePackDriver extends QbtCommand<ReceivePackDriver.Options> {
     }
 
     @Override
+    public boolean isProgrammaticOutput() {
+        return true;
+    }
+
+    @Override
     public int run(final OptionsResults<? extends Options> options) throws Exception {
         ImmutableList<String> args = options.get(Options.args);
         Path root = Paths.get(args.get(args.size() - 1));
