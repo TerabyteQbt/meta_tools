@@ -5,7 +5,7 @@ meta_tools.diff.Sdiff
 meta_tools.diff.SdiffDriver
 meta_tools.merge.MergeDriver
 meta_tools.merge.ResolveManifestConflicts
-meta_tools.pinproxy.PreReceiveHook
+meta_tools.pinproxy.UpdateHook
 meta_tools.pinproxy.ReceivePackDriver
 meta_tools.pinproxy.UploadPackDriver
 meta_tools.status.OverrideStatus

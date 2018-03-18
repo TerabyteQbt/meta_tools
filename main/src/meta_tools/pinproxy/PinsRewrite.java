@@ -9,7 +9,6 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 import misc1.commons.concurrent.ctree.ComputationTree;
-import misc1.commons.ph.ProcessHelper;
 import org.apache.commons.lang3.ObjectUtils;
 import qbt.VcsVersionDigest;
 import qbt.config.LocalPinsRepo;
@@ -21,6 +20,7 @@ import qbt.manifest.current.QbtManifest;
 import qbt.manifest.current.RepoManifest;
 import qbt.remote.QbtRemote;
 import qbt.tip.RepoTip;
+import qbt.vcs.git.GitUtils;
 
 public class PinsRewrite implements PinProxyRewrite {
     private final Path workspaceRoot;
@@ -47,18 +47,7 @@ public class PinsRewrite implements PinProxyRewrite {
         ImmutableMap.Builder<VcsVersionDigest, VcsVersionDigest> ret = ImmutableMap.builder();
         ImmutableMultimap.Builder<RepoTip, VcsVersionDigest> repoVersions = ImmutableMultimap.builder();
         for(VcsVersionDigest commit : ImmutableSet.copyOf(commits)) {
-            // Ugh, this is a mess.  pre-receive hooks run in a "quarantine
-            // env" where incoming objects aren't actually in the repo yet and
-            // are only visible to `git` commands due to insane GIT_ env
-            // variables.  Similarly any objects created during pre-receive
-            // aren't real until (unless!) the receive succeeds.
-            //
-            // For us right here, right now this "just" means we can't use
-            // GitUtils.showFile() which will wipe the GIT_ stuff.  In the
-            // longer term for monoRepo proxy we're going to have other
-            // problems (the entire inline/extract process will have to
-            // similarly operate w/o wiping GIT_ for any git commands in meta).
-            Iterable<String> lines = ProcessHelper.of(workspaceRoot, "git", "show", commit.getRawDigest() + ":qbt-manifest").run().requireSuccess().stdout;
+            Iterable<String> lines = GitUtils.showFile(workspaceRoot, commit, "qbt-manifest");
 
             QbtManifest manifest = manifestParser.parse(ImmutableList.copyOf(lines));
             for(Map.Entry<RepoTip, RepoManifest> e : manifest.repos.entrySet()) {
