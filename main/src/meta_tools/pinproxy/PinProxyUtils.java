@@ -92,14 +92,21 @@ public final class PinProxyUtils {
             VcsVersionDigest oldLocalCommit = heads.get(name);
             VcsVersionDigest remoteCommit = newRemotes.get(name);
             if(remoteCommit == null) {
-                runSimple(root, "git", "update-ref", "-d", "refs/heads/" + name);
+                if(oldLocalCommit == null) {
+                    // ?
+                }
+                else {
+                    runSimple(root, "git", "update-ref", "-d", "refs/heads/" + name);
+                }
             }
             else {
                 VcsVersionDigest localCommit = rewriteMap.get(remoteCommit);
                 if(localCommit == null) {
                     throw new IllegalStateException();
                 }
-                runSimple(root, "git", "update-ref", "refs/heads/" + name, localCommit.getRawDigest().toString());
+                if(oldLocalCommit == null || !oldLocalCommit.equals(localCommit)) {
+                    runSimple(root, "git", "update-ref", "refs/heads/" + name, localCommit.getRawDigest().toString());
+                }
             }
         }
     }
