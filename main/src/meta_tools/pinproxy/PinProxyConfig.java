@@ -23,15 +23,4 @@ public final class PinProxyConfig {
             throw ExceptionUtils.commute(e);
         }
     }
-
-    public String stripRef(String ref) {
-        if(!ref.startsWith("refs/heads/")) {
-            throw new IllegalArgumentException("Bad ref: " + ref);
-        }
-        return ref.substring(11);
-    }
-
-    public String unstripRef(String ref) {
-        return "refs/heads/" + ref;
-    }
 }

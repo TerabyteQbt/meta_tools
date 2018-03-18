@@ -44,7 +44,7 @@ public class UpdateHook extends QbtCommand<UpdateHook.Options> {
         PinProxyConfig config = PinProxyConfig.parse(Paths.get("./pin-proxy-config"));
 
         ImmutableList<String> args = options.get(Options.args);
-        String ref = config.stripRef(args.get(0));
+        String head = PinProxyUtils.refToHead(args.get(0));
         VcsVersionDigest oldLocalCommit = new VcsVersionDigest(QbtHashUtils.parse(args.get(1)));
         VcsVersionDigest newLocalCommit = new VcsVersionDigest(QbtHashUtils.parse(args.get(2)));
 
@@ -57,8 +57,8 @@ public class UpdateHook extends QbtCommand<UpdateHook.Options> {
 
         ImmutableList.Builder<String> cmd = ImmutableList.builder();
         cmd.add("git", "push", config.gitRemote);
-        cmd.add("--force-with-lease=" + config.unstripRef(ref) + ":" + oldRemoteCommit.getRawDigest());
-        cmd.add(newRemoteCommit.getRawDigest() + ":" + config.unstripRef(ref));
+        cmd.add("--force-with-lease=refs/heads/" + head + ":" + oldRemoteCommit.getRawDigest());
+        cmd.add(newRemoteCommit.getRawDigest() + ":refs/heads/" + head);
         return ProcessHelper.of(Paths.get("."), cmd.build()).inheritIO().run().exitCode;
     }
 }

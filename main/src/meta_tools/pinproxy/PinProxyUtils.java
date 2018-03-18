@@ -45,21 +45,20 @@ public final class PinProxyUtils {
         String gitRemote = config.gitRemote;
         PinProxyRewrite rewrite = config.rewrite;
 
-        String wildcard = config.unstripRef("*");
-        runSimple(root, "git", "fetch", "--no-tags", gitRemote, "-p", "+" + wildcard + ":" + wildcard);
+        runSimple(root, "git", "fetch", "--no-tags", gitRemote, "-p", "+refs/heads/*:refs/heads/*");
 
         ImmutableList<String> refLines = ProcessHelper.of(root, "git", "show-ref").inheritError().run().requireSuccess().stdout;
 
-        ImmutableList.Builder<Pair<String, VcsVersionDigest>> refs = ImmutableList.builder();
+        ImmutableList.Builder<Pair<String, VcsVersionDigest>> heads = ImmutableList.builder();
         ImmutableSet.Builder<VcsVersionDigest> allRemoteCommits = ImmutableSet.builder();
         for(String refLine : refLines) {
             Matcher m = REF_LINE_PATTERN.matcher(refLine);
             if(!m.matches()) {
                 throw new IllegalArgumentException("Bad git show-ref line: " + refLine);
             }
-            String ref = config.stripRef(m.group(2));
+            String head = refToHead(m.group(2));
             VcsVersionDigest remoteCommit = new VcsVersionDigest(QbtHashUtils.parse(m.group(1)));
-            refs.add(Pair.of(ref, remoteCommit));
+            heads.add(Pair.of(head, remoteCommit));
             allRemoteCommits.add(remoteCommit);
         }
 
@@ -68,16 +67,23 @@ public final class PinProxyUtils {
         ParallelismOptionsResult por = WorkPool::defaultParallelism;
         ImmutableMap<VcsVersionDigest, VcsVersionDigest> rewriteMap = por.runComputationTree(rewriteMapCt);
 
-        for(Pair<String, VcsVersionDigest> tuple : refs.build()) {
-            String ref = tuple.getLeft();
+        for(Pair<String, VcsVersionDigest> tuple : heads.build()) {
+            String head = tuple.getLeft();
             VcsVersionDigest remoteCommit = tuple.getRight();
             VcsVersionDigest localCommit = rewriteMap.get(remoteCommit);
             if(localCommit == null) {
                 throw new IllegalStateException();
             }
-            runSimple(root, "git", "update-ref", config.unstripRef(ref), localCommit.getRawDigest().toString());
+            runSimple(root, "git", "update-ref", "refs/heads/" + head, localCommit.getRawDigest().toString());
         }
     }
 
     public static final VcsVersionDigest ZEROES = new VcsVersionDigest(QbtHashUtils.parse("0000000000000000000000000000000000000000"));
+
+    public static String refToHead(String ref) {
+        if(!ref.startsWith("refs/heads/")) {
+            throw new IllegalArgumentException("Bad ref: " + ref);
+        }
+        return ref.substring(11);
+    }
 }
