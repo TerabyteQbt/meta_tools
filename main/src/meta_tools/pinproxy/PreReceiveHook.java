@@ -2,6 +2,8 @@ package meta_tools.pinproxy;
 
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.file.Paths;
@@ -47,7 +49,8 @@ public class PreReceiveHook extends QbtCommand<PreReceiveHook.Options> {
     public int run(final OptionsResults<? extends Options> options) throws Exception {
         PinProxyConfig config = PinProxyConfig.parse(Paths.get("./pin-proxy-config"));
 
-        ImmutableList.Builder<String> inputs = ImmutableList.builder();
+        ImmutableList.Builder<Triple<String, VcsVersionDigest, VcsVersionDigest>> inputs = ImmutableList.builder();
+        ImmutableSet.Builder<VcsVersionDigest> allLocalCommits = ImmutableSet.builder();
         try(InputStreamReader isr = new InputStreamReader(System.in, Charsets.UTF_8)) {
             try(BufferedReader br = new BufferedReader(isr)) {
                 while(true) {
@@ -55,33 +58,40 @@ public class PreReceiveHook extends QbtCommand<PreReceiveHook.Options> {
                     if(input == null) {
                         break;
                     }
-                    inputs.add(input);
+                    Matcher m = INPUT_PATTERN.matcher(input);
+                    if(!m.matches()) {
+                        throw new IllegalArgumentException("Bad pre-receive hook input: " + input);
+                    }
+                    String ref = m.group(3);
+                    VcsVersionDigest oldLocalCommit = new VcsVersionDigest(QbtHashUtils.parse(m.group(1)));
+                    VcsVersionDigest newLocalCommit = new VcsVersionDigest(QbtHashUtils.parse(m.group(2)));
+                    inputs.add(Triple.of(ref, oldLocalCommit, newLocalCommit));
+                    if(!oldLocalCommit.equals(ZEROES)) {
+                        allLocalCommits.add(oldLocalCommit);
+                    }
+                    if(!newLocalCommit.equals(ZEROES)) {
+                        allLocalCommits.add(newLocalCommit);
+                    }
                 }
             }
         }
 
-        ComputationTree<ImmutableList<Triple<String, VcsVersionDigest, VcsVersionDigest>>> ct = ComputationTree.transformIterableExec(inputs.build(), (input) -> {
-            Matcher m = INPUT_PATTERN.matcher(input);
-            if(!m.matches()) {
-                throw new IllegalArgumentException("Bad pre-receive hook input: " + input);
-            }
-            String ref = m.group(3);
-            VcsVersionDigest oldLocalCommit = new VcsVersionDigest(QbtHashUtils.parse(m.group(1)));
-            VcsVersionDigest newLocalCommit = new VcsVersionDigest(QbtHashUtils.parse(m.group(2)));
-            ComputationTree<VcsVersionDigest> oldRemoteCommit = oldLocalCommit.equals(ZEROES) ? ComputationTree.constant(ZEROES) : config.rewrite.localToRemote(oldLocalCommit);
-            ComputationTree<VcsVersionDigest> newRemoteCommit = newLocalCommit.equals(ZEROES) ? ComputationTree.constant(ZEROES) : config.rewrite.localToRemote(newLocalCommit);
-            return ComputationTree.tuple(ComputationTree.constant(ref), oldRemoteCommit, newRemoteCommit, Triple::of);
-        });
+        ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> rewriteMapCt = config.rewrite.localToRemote(allLocalCommits.build());
 
         ParallelismOptionsResult por = WorkPool::defaultParallelism;
-        ImmutableList<Triple<String, VcsVersionDigest, VcsVersionDigest>> pushes = por.runComputationTree(ct);
+        ImmutableMap<VcsVersionDigest, VcsVersionDigest> rewriteMap = por.runComputationTree(rewriteMapCt);
 
         ImmutableList.Builder<String> cmd = ImmutableList.builder();
         cmd.add("git", "push", config.gitRemote);
-        for(Triple<String, VcsVersionDigest, VcsVersionDigest> push : pushes) {
-            String ref = push.getLeft();
-            VcsVersionDigest oldRemoteCommit = push.getMiddle();
-            VcsVersionDigest newRemoteCommit = push.getRight();
+        for(Triple<String, VcsVersionDigest, VcsVersionDigest> input : inputs.build()) {
+            String ref = input.getLeft();
+            VcsVersionDigest oldLocalCommit = input.getMiddle();
+            VcsVersionDigest newLocalCommit = input.getRight();
+            VcsVersionDigest oldRemoteCommit = oldLocalCommit.equals(ZEROES) ? ZEROES : rewriteMap.get(oldLocalCommit);
+            VcsVersionDigest newRemoteCommit = newLocalCommit.equals(ZEROES) ? ZEROES : rewriteMap.get(newLocalCommit);
+            if(oldRemoteCommit == null || newRemoteCommit == null) {
+                throw new IllegalStateException();
+            }
             cmd.add("--force-with-lease=refs/" + ref + ":" + oldRemoteCommit.getRawDigest());
             cmd.add(newRemoteCommit.getRawDigest() + ":refs/" + ref);
         }

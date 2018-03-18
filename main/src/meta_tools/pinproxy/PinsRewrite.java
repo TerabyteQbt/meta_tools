@@ -4,6 +4,8 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import java.nio.file.Path;
 import misc1.commons.concurrent.ctree.ComputationTree;
 import misc1.commons.ph.ProcessHelper;
@@ -57,8 +59,12 @@ public class PinsRewrite implements PinProxyRewrite {
     });
 
     @Override
-    public ComputationTree<VcsVersionDigest> localToRemote(VcsVersionDigest localCommit) {
-        return localToRemote.getUnchecked(localCommit);
+    public ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> localToRemote(Iterable<VcsVersionDigest> localCommits) {
+        ImmutableMap.Builder<VcsVersionDigest, ComputationTree<VcsVersionDigest>> b = ImmutableMap.builder();
+        for(VcsVersionDigest localCommit : ImmutableSet.copyOf(localCommits)) {
+            b.put(localCommit, localToRemote.getUnchecked(localCommit));
+        }
+        return ComputationTree.map(b.build());
     }
 
     private final LoadingCache<VcsVersionDigest, ComputationTree<VcsVersionDigest>> remoteToLocal = CacheBuilder.newBuilder().build(new CacheLoader<VcsVersionDigest, ComputationTree<VcsVersionDigest>>() {
@@ -72,7 +78,11 @@ public class PinsRewrite implements PinProxyRewrite {
     });
 
     @Override
-    public ComputationTree<VcsVersionDigest> remoteToLocal(VcsVersionDigest remoteCommit) {
-        return remoteToLocal.getUnchecked(remoteCommit);
+    public ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> remoteToLocal(Iterable<VcsVersionDigest> remoteCommits) {
+        ImmutableMap.Builder<VcsVersionDigest, ComputationTree<VcsVersionDigest>> b = ImmutableMap.builder();
+        for(VcsVersionDigest remoteCommit : ImmutableSet.copyOf(remoteCommits)) {
+            b.put(remoteCommit, remoteToLocal.getUnchecked(remoteCommit));
+        }
+        return ComputationTree.map(b.build());
     }
 }

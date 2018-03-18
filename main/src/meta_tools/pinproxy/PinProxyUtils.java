@@ -1,6 +1,8 @@
 package meta_tools.pinproxy;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -13,7 +15,7 @@ import misc1.commons.ExceptionUtils;
 import misc1.commons.concurrent.WorkPool;
 import misc1.commons.concurrent.ctree.ComputationTree;
 import misc1.commons.ph.ProcessHelper;
-import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import qbt.QbtHashUtils;
 import qbt.VcsVersionDigest;
 import qbt.options.ParallelismOptionsResult;
@@ -46,7 +48,9 @@ public final class PinProxyUtils {
         runSimple(root, "git", "fetch", gitRemote, "-p", "+refs/*:refs/*");
 
         ImmutableList<String> refLines = ProcessHelper.of(root, "git", "show-ref").inheritError().run().requireSuccess().stdout;
-        ComputationTree<?> ct = ComputationTree.constant();
+
+        ImmutableList.Builder<Pair<String, VcsVersionDigest>> refs = ImmutableList.builder();
+        ImmutableSet.Builder<VcsVersionDigest> allRemoteCommits = ImmutableSet.builder();
         for(String refLine : refLines) {
             Matcher m = REF_LINE_PATTERN.matcher(refLine);
             if(!m.matches()) {
@@ -54,14 +58,23 @@ public final class PinProxyUtils {
             }
             String ref = m.group(2);
             VcsVersionDigest remoteCommit = new VcsVersionDigest(QbtHashUtils.parse(m.group(1)));
-            ComputationTree<VcsVersionDigest> localCommitCt = rewrite.remoteToLocal(remoteCommit);
-            ct = ct.combineLeft(localCommitCt.transform((localCommit) -> {
-                runSimple(root, "git", "update-ref", "refs/" + ref, localCommit.getRawDigest().toString());
-                return ObjectUtils.NULL;
-            }));
+            refs.add(Pair.of(ref, remoteCommit));
+            allRemoteCommits.add(remoteCommit);
         }
 
+        ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> rewriteMapCt = rewrite.remoteToLocal(allRemoteCommits.build());
+
         ParallelismOptionsResult por = WorkPool::defaultParallelism;
-        por.runComputationTree(ct);
+        ImmutableMap<VcsVersionDigest, VcsVersionDigest> rewriteMap = por.runComputationTree(rewriteMapCt);
+
+        for(Pair<String, VcsVersionDigest> tuple : refs.build()) {
+            String ref = tuple.getLeft();
+            VcsVersionDigest remoteCommit = tuple.getRight();
+            VcsVersionDigest localCommit = rewriteMap.get(remoteCommit);
+            if(localCommit == null) {
+                throw new IllegalStateException();
+            }
+            runSimple(root, "git", "update-ref", "refs/" + ref, localCommit.getRawDigest().toString());
+        }
     }
 }
