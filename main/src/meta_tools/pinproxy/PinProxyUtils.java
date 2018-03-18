@@ -77,4 +77,6 @@ public final class PinProxyUtils {
             runSimple(root, "git", "update-ref", "refs/" + ref, localCommit.getRawDigest().toString());
         }
     }
+
+    public static final VcsVersionDigest ZEROES = new VcsVersionDigest(QbtHashUtils.parse("0000000000000000000000000000000000000000"));
 }

@@ -4,12 +4,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import misc1.commons.concurrent.ctree.ComputationTree;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import qbt.VcsVersionDigest;
 import qbt.config.LocalPinsRepo;
 import qbt.mains.FetchPins;
@@ -43,40 +46,63 @@ public class PinsRewrite implements PinProxyRewrite {
         void run(RepoTip repo, Iterable<VcsVersionDigest> versions);
     }
 
-    private ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> common(Iterable<VcsVersionDigest> commits, CommonCallback cb) {
-        ImmutableMap.Builder<VcsVersionDigest, VcsVersionDigest> ret = ImmutableMap.builder();
-        ImmutableMultimap.Builder<RepoTip, VcsVersionDigest> repoVersions = ImmutableMultimap.builder();
+    private ImmutableMultimap<RepoTip, VcsVersionDigest> compileRepoVersions(Iterable<VcsVersionDigest> commits) {
+        ImmutableMultimap.Builder<RepoTip, VcsVersionDigest> ret = ImmutableMultimap.builder();
         for(VcsVersionDigest commit : ImmutableSet.copyOf(commits)) {
-            Iterable<String> lines = GitUtils.showFile(workspaceRoot, commit, "qbt-manifest");
+            if(commit.equals(PinProxyUtils.ZEROES)) {
+                continue;
+            }
 
+            Iterable<String> lines = GitUtils.showFile(workspaceRoot, commit, "qbt-manifest");
             QbtManifest manifest = manifestParser.parse(ImmutableList.copyOf(lines));
+
             for(Map.Entry<RepoTip, RepoManifest> e : manifest.repos.entrySet()) {
                 RepoTip repo = e.getKey();
                 RepoManifest repoManifest = e.getValue();
                 Optional<VcsVersionDigest> maybeVersion = repoManifest.version;
                 if(maybeVersion.isPresent()) {
-                    repoVersions.put(repo, maybeVersion.get());
+                    ret.put(repo, maybeVersion.get());
                 }
             }
-
-            ret.put(commit, commit);
         }
-        ComputationTree runCt = ComputationTree.list(Iterables.transform(repoVersions.build().asMap().entrySet(), (e) -> {
-            return ComputationTree.ofSupplier(() -> {
+        return ret.build();
+    }
+
+    private <R> ComputationTree<R> common(R ret, Iterable<VcsVersionDigest> commits, CommonCallback cb) {
+        ComputationTree<R> ct = ComputationTree.constant(ret);
+
+        ImmutableMultimap<RepoTip, VcsVersionDigest> repoVersions = compileRepoVersions(commits);
+
+        for(Map.Entry<RepoTip, Collection<VcsVersionDigest>> e : repoVersions.asMap().entrySet()) {
+            ct = ct.combineLeft(ComputationTree.ofSupplier(() -> {
                 cb.run(e.getKey(), e.getValue());
                 return ObjectUtils.NULL;
-            });
-        }));
-        return ComputationTree.constant(ret.build()).combineLeft(runCt);
+            }));
+        }
+
+        return ct;
     }
 
     @Override
-    public ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> localToRemote(Iterable<VcsVersionDigest> localCommits) {
-        return common(localCommits, (repo, versions) -> PushPins.push(localPinsRepo, qbtRemote, repo, versions));
+    public ComputationTree<Pair<VcsVersionDigest, VcsVersionDigest>> localToRemote(Pair<VcsVersionDigest, VcsVersionDigest> commits) {
+        VcsVersionDigest oldCommit = commits.getLeft();
+        VcsVersionDigest newCommit = commits.getRight();
+
+        ImmutableMultimap<RepoTip, VcsVersionDigest> oldRepoVersions = compileRepoVersions(ImmutableList.of(oldCommit));
+
+        return common(commits, ImmutableSet.of(newCommit), (repo, versions) -> {
+            Set<VcsVersionDigest> push = Sets.newHashSet(versions);
+            push.removeAll(oldRepoVersions.get(repo));
+            PushPins.push(localPinsRepo, qbtRemote, repo, push);
+        });
     }
 
     @Override
-    public ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> remoteToLocal(Iterable<VcsVersionDigest> remoteCommits) {
-        return common(remoteCommits, (repo, versions) -> FetchPins.fetch(localPinsRepo, qbtRemote, repo, versions));
+    public ComputationTree<ImmutableMap<VcsVersionDigest, VcsVersionDigest>> remoteToLocal(Iterable<VcsVersionDigest> commits) {
+        ImmutableMap.Builder<VcsVersionDigest, VcsVersionDigest> ret = ImmutableMap.builder();
+        for(VcsVersionDigest commit : ImmutableSet.copyOf(commits)) {
+            ret.put(commit, commit);
+        }
+        return common(ret.build(), commits, (repo, versions) -> FetchPins.fetch(localPinsRepo, qbtRemote, repo, versions));
     }
 }
