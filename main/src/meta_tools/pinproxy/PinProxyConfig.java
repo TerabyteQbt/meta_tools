@@ -1,8 +1,7 @@
 package meta_tools.pinproxy;
 
-import groovy.lang.GroovyShell;
 import java.nio.file.Path;
-import misc1.commons.ExceptionUtils;
+import qbt.script.QbtScriptEngine;
 
 public final class PinProxyConfig {
     public final String gitRemote;
@@ -14,13 +13,8 @@ public final class PinProxyConfig {
     }
 
     public static PinProxyConfig parse(Path f) {
-        GroovyShell shell = new GroovyShell();
-        shell.setVariable("workspaceRoot", f.getParent());
-        try {
-            return (PinProxyConfig) shell.evaluate(f.toFile());
-        }
-        catch(Exception e) {
-            throw ExceptionUtils.commute(e);
-        }
+        QbtScriptEngine.Builder b = QbtScriptEngine.TYPE.builder();
+        b = b.addVariable("workspaceRoot", f.getParent());
+        return b.build().eval(f);
     }
 }

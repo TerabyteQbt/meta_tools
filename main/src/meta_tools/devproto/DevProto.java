@@ -7,7 +7,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import groovy.lang.GroovyShell;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collection;
@@ -15,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import misc1.commons.Either;
-import misc1.commons.ExceptionUtils;
 import misc1.commons.Maybe;
 import misc1.commons.concurrent.ctree.ComputationTree;
 import misc1.commons.options.OptionsFragment;
@@ -54,6 +52,7 @@ import qbt.recursive.cv.CumulativeVersionNodeData;
 import qbt.recursive.cvrpd.CvRecursivePackageData;
 import qbt.recursive.cvrpd.CvRecursivePackageDataComputationMapper;
 import qbt.recursive.cvrpd.CvRecursivePackageDataMapper;
+import qbt.script.QbtScriptEngine;
 import qbt.tip.PackageTip;
 import qbt.utils.ProcessHelperUtils;
 
@@ -154,14 +153,7 @@ public final class DevProto extends QbtCommand<DevProto.Options> {
                                     return Maybe.<ImmutableList<DevProtoInput>>not();
                                 }
 
-                                GroovyShell shell = new GroovyShell();
-                                List<DevProtoInput> inputs;
-                                try {
-                                    inputs = (List<DevProtoInput>)shell.evaluate(script.toFile());
-                                }
-                                catch(Exception e) {
-                                    throw ExceptionUtils.commute(e);
-                                }
+                                List<DevProtoInput> inputs = QbtScriptEngine.TYPE.builder().build().eval(script);
 
                                 return Maybe.of(ImmutableList.copyOf(inputs));
                             }
